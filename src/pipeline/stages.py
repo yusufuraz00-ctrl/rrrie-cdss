@@ -1051,9 +1051,15 @@ def _generate_programmatic_queries(
     queries: list[dict] = []
     seen_queries: set[str] = set()  # dedup key: (tool, query_text_lower)
 
-    for dx in diagnoses[:3]:
+    for dx in diagnoses[:5]:
         name = dx.get("diagnosis", "")
         if not name:
+            continue
+
+        # Skip non-Latin diagnosis names — translated English versions are
+        # appended separately by run_r2() as synthetic diagnosis entries.
+        # Querying PubMed/EPMC with Turkish names yields zero results.
+        if _has_non_latin_medical_text(name):
             continue
 
         core_terms = _extract_core_terms(name)

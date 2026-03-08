@@ -158,12 +158,16 @@ def detect_paradoxes(patient_text: str) -> list[Paradox]:
     return paradoxes
 
 
-def format_paradox_directive(paradoxes: list[Paradox]) -> str:
+def format_paradox_directive(paradoxes: list[Paradox], r1_differentials: list[dict] | None = None) -> str:
     """Format detected paradoxes into a persistent directive for R3.
 
     This directive is injected into EVERY R3 iteration and CANNOT be
     overridden by IE suggestions or perspective shifts. It represents
     a hard clinical signal extracted from the patient text.
+
+    Args:
+        paradoxes: Detected drug→worsening events.
+        r1_differentials: R1's differential_diagnoses list for cross-referencing.
 
     Returns empty string if no paradoxes detected.
     """
@@ -182,6 +186,23 @@ def format_paradox_directive(paradoxes: list[Paradox]) -> str:
         lines.append(f"### Paradox {i}: \"{p.drug_or_intervention}\" → worsening")
         lines.append(f"- Detected pattern: \"{p.worsening_description}\"")
         lines.append(f"- Original text fragment: \"{p.source_text}\"")
+        lines.append("")
+
+    # Cross-reference with R1's differential list so R3 sees both together
+    if r1_differentials:
+        lines.append("### R1 DIFFERENTIAL DIAGNOSES (cross-reference with paradoxes above):")
+        for dx in r1_differentials[:5]:
+            name = dx.get("diagnosis", "?")
+            conf = dx.get("confidence", 0)
+            rank = dx.get("rank", "?")
+            lines.append(f"  {rank}. {name} (confidence: {conf})")
+        lines.append("")
+        lines.append(
+            "For EACH paradox × EACH differential: determine if the drug is known to "
+            "TRIGGER, EXACERBATE, or have NO EFFECT on that condition. "
+            "Any differential that IS triggered by the drug → ELEVATE its ranking. "
+            "Any differential that would NOT be affected → REDUCE its likelihood."
+        )
         lines.append("")
 
     lines.extend([

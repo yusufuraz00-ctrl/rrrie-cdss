@@ -154,13 +154,18 @@ def _extract_ie_diagnosis_suggestion(ie_json: dict) -> str | None:
     if reasoning:
         # Patterns like "this is actually X", "correct diagnosis is X",
         # "should be X", "suggests X", "consider X"
+        # NOTE: all patterns use [A-Za-z] (not [A-Z]) to handle lowercase model outputs
         patterns = [
-            r"(?:correct|actual|true|real|proper)\s+diagnosis\s+(?:is|should\s+be|appears?\s+to\s+be)\s+(?:actually\s+)?['\"]?([A-Z][a-zA-Z\s\-]{3,40}?)['\"]?(?:\.|,|$)",
+            r"(?:correct|actual|true|real|proper|likely|primary)\s+diagnosis\s+(?:is|should\s+be|appears?\s+to\s+be|seems?\s+to\s+be|would\s+be)\s+(?:actually\s+)?['\"]?([A-Za-z][a-zA-Z\s\-]{3,40}?)['\"]?(?:\.|,|$)",
             # Known toxic substances — high priority, precise match
             r"((?:methanol|ethylene\s+glycol|diethylene\s+glycol|toxic\s+alcohol)\s+(?:toxicity|poisoning|ingestion))",
-            # "this is/looks like/consistent with X poisoning" (no 'suggests' — too greedy)
-            r"(?:this\s+is|this\s+looks?\s+like|consistent\s+with)\s+(?:actually\s+)?['\"]?([A-Z][a-zA-Z\s\-]{3,40}?)['\"]?\s+(?:toxicity|poisoning|syndrome|disease|disorder|deficiency|infection|encephalopathy)",
+            # "this is/looks like/consistent with/more consistent with X poisoning/syndrome/etc."
+            r"(?:this\s+(?:is|case\s+is)|this\s+looks?\s+like|(?:more\s+)?consistent\s+with|strongly\s+suggests?)\s+(?:actually\s+)?['\"]?([A-Za-z][a-zA-Z\s\-]{3,40}?)['\"]?\s+(?:toxicity|poisoning|syndrome|disease|disorder|deficiency|infection|encephalopathy)",
             r"re-?evaluation\s+(?:of\s+the\s+case\s+)?as\s+(?:a\s+)?['\"]?([A-Za-z][a-zA-Z\s\-]{3,40}?)(?:\s+toxicity|\s+poisoning)?['\"]?(?:\.|,|\s|$)",
+            # "should consider X", "points to X", "more likely X"
+            r"(?:should\s+consider|points?\s+(?:to|toward)|more\s+likely)\s+['\"]?([A-Za-z][a-zA-Z\s\-]{3,40}?)['\"]?(?:\s+(?:as\s+the|rather|instead)|\.|,|$)",
+            # "diagnosis: X" or "diagnosis — X" (structured output)
+            r"(?:suggested|alternative|revised|proposed)\s+diagnosis[\s:—\-]+['\"]?([A-Za-z][a-zA-Z\s\-]{3,40}?)['\"]?(?:\.|,|$)",
         ]
         for pat in patterns:
             m = re.search(pat, reasoning, re.IGNORECASE)
@@ -183,8 +188,9 @@ def _extract_ie_diagnosis_suggestion(ie_json: dict) -> str | None:
         if issue_type in ("wrong_diagnosis", "incomplete_diagnosis"):
             # Try to extract the suggested alternative from the detail text
             for pat in [
-                r"(?:should\s+be\s+(?:evaluated|re-?evaluated|considered)\s+as|should\s+be|consider|evaluate|re-evaluate\s+as)\s+['\"]?([A-Z][a-zA-Z\s\-]{3,40}?)['\"]?(?:\s+as\s|\.\s|\.|,|;|$)",
+                r"(?:should\s+be\s+(?:evaluated|re-?evaluated|considered)\s+as|should\s+be|consider|evaluate|re-evaluate\s+as)\s+['\"]?([A-Za-z][a-zA-Z\s\-]{3,40}?)['\"]?(?:\s+as\s|\.\s|\.|,|;|$)",
                 r"((?:methanol|ethylene\s+glycol|diethylene\s+glycol|toxic\s+alcohol)[\s\w]*(?:toxicity|poisoning|ingestion))",
+                r"(?:likely|actual|correct)\s+diagnosis\s+(?:is|being)\s+['\"]?([A-Za-z][a-zA-Z\s\-]{3,40}?)['\"]?(?:\.|,|;|$)",
             ]:
                 m = re.search(pat, detail, re.IGNORECASE)
                 if m:
@@ -549,7 +555,10 @@ async def run_rrrie_chat(
     from src.core.paradox_resolver import detect_paradoxes, format_paradox_directive, format_paradox_for_ie
 
     paradoxes = detect_paradoxes(patient_text)
-    paradox_directive = format_paradox_directive(paradoxes)
+    paradox_directive = format_paradox_directive(
+        paradoxes,
+        r1_differentials=r1_json.get("differential_diagnoses", []) if r1_json else None,
+    )
     paradox_ie_text = format_paradox_for_ie(paradoxes)
 
     if paradoxes:
@@ -590,9 +599,11 @@ async def run_rrrie_chat(
         max_iterations = 2
         min_iterations = 1
     elif local_only:
-        # Local mode: cap iterations to save time (4B model doesn't improve much after 3)
-        max_iterations = min(max_iterations, 3)
-        min_iterations = min(min_iterations, 1)
+        # Local mode: cap max iterations but respect Router's min for complex/critical cases
+        max_iterations = min(max_iterations, 4)
+        # Only reduce min_iterations if Router didn't set a higher minimum
+        if pipeline_cfg is None:
+            min_iterations = min(min_iterations, 1)
 
     # ── Smart Iteration Controller ──
     iter_ctrl = IterationController(
@@ -667,7 +678,7 @@ async def run_rrrie_chat(
 """
                 logger.info("[R3] Injecting raw R1 text (%d chars) as fallback", len(raw_r1))
 
-        if memory_prompt_text and iteration == 1:
+        if memory_prompt_text:
             r3_base_context += "\n" + memory_prompt_text + "\n"
         if drug_facts_text:
             r3_base_context += "\n" + drug_facts_text + "\n"
