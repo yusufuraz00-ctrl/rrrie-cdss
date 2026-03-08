@@ -26,7 +26,7 @@ logger = logging.getLogger("rrrie-cdss")
 # Layer A: Hallucination + Symptom Coverage
 # ═══════════════════════════════════════════════════════════════
 
-LAYER_A_SYSTEM = """You are a medical fact-checker. Check for HALLUCINATIONS and SYMPTOM COVERAGE only.
+LAYER_A_SYSTEM = """You are a medical fact-checker. Check for HALLUCINATIONS, SYMPTOM COVERAGE, and DIAGNOSTIC CATEGORY GAPS.
 
 TASK 1 — HALLUCINATION CHECK:
 Compare "R1 Reported Findings" (key_positives) against "Original Patient Text".
@@ -36,10 +36,24 @@ TASK 2 — SYMPTOM COVERAGE:
 For each patient symptom, is it explained by the primary diagnosis?
 If a MAJOR symptom is unexplained → that is a coverage gap.
 
+TASK 3 — DIAGNOSTIC CATEGORY AUDIT (demographic-aware):
+Given the patient's demographics (age, sex, reproductive status), check if ALL relevant
+medical specialty categories are represented in the differential diagnosis:
+  Categories: Cardiovascular, Pulmonary, GI, GU/Gynecological, Neurological,
+              Hematological, Endocrine, Infectious, Surgical, Toxicological
+Rules:
+- If the patient's demographics make a specific category HIGHLY RELEVANT
+  (e.g., reproductive-age female → GU/GYN MUST be considered,
+   elderly on anticoagulants → Hematological/Hemorrhagic MUST be considered,
+   child with abdominal pain → Surgical/Pediatric MUST be considered)
+  and ZERO diagnoses from that category appear → this is a CRITICAL gap.
+- A missing demographic-relevant category means the diagnostic FRAME may be wrong.
+
 OUTPUT — valid JSON only:
 {
   "hallucinations": ["finding NOT in patient text"],
   "unexplained_symptoms": ["symptom not covered by diagnosis"],
+  "missing_categories": ["medical specialty category that SHOULD be represented but is NOT"],
   "history_complete": true,
   "has_critical_issue": true
 }"""
@@ -79,7 +93,7 @@ OUTPUT — valid JSON only:
 LAYER_C_SYSTEM = """You are the final quality gate for a clinical assessment.
 
 You receive the results of two prior checks:
-- Layer A: hallucination + symptom coverage results
+- Layer A: hallucination + symptom coverage + diagnostic category audit results
 - Layer B: evidence + treatment safety results
 
 Based on these findings, make the FINAL decision.
@@ -92,6 +106,15 @@ RULES:
 - If only minor issues → decision = "FINALIZE"
 - Set confidence based on severity of issues found (0.0-1.0)
 
+FRAME BLINDNESS CHECK (MANDATORY — perform BEFORE deciding):
+Before making your decision, ask yourself:
+1. Could a COMPLETELY DIFFERENT diagnostic framework explain ALL symptoms equally well or better?
+2. If the entire R1→R3 chain went down ONE organ-system path (e.g., GI), is there an ALTERNATIVE
+   path (e.g., OB/GYN, Vascular, Hematological) that was NEVER explored?
+3. Are there any MISSING CATEGORIES from Layer A that suggest tunnel vision?
+If the answer to any of these is YES → decision MUST be "ITERATE" with the alternative
+framework as suggested_diagnosis. This catches systematic diagnostic tunnel vision.
+
 OUTPUT — valid JSON only:
 {
   "issues": [
@@ -100,7 +123,8 @@ OUTPUT — valid JSON only:
   "confidence": 0.0,
   "decision": "FINALIZE|ITERATE",
   "reasoning": "1-2 sentence justification",
-  "suggested_diagnosis": null
+  "suggested_diagnosis": null,
+  "alternative_framework": null
 }"""
 
 
@@ -213,11 +237,16 @@ def _build_layer_c_context(
     confidence: float,
 ) -> str:
     """Build context for Layer C (decision synthesis from A+B results)."""
+    missing_cats = layer_a_json.get("missing_categories", [])
+    missing_section = ""
+    if missing_cats:
+        missing_section = f"\n- Missing diagnostic categories: {json.dumps(missing_cats, ensure_ascii=False)}"
+
     return f"""## Primary Diagnosis: {primary_diagnosis} ({confidence:.0%})
 
-## Layer A Results (Hallucination + Symptom Coverage)
+## Layer A Results (Hallucination + Symptom Coverage + Category Audit)
 - Hallucinations found: {json.dumps(layer_a_json.get('hallucinations', []), ensure_ascii=False)}
-- Unexplained symptoms: {json.dumps(layer_a_json.get('unexplained_symptoms', []), ensure_ascii=False)}
+- Unexplained symptoms: {json.dumps(layer_a_json.get('unexplained_symptoms', []), ensure_ascii=False)}{missing_section}
 - History complete: {layer_a_json.get('history_complete', True)}
 - Has critical issue: {layer_a_json.get('has_critical_issue', False)}
 
@@ -336,6 +365,8 @@ async def run_layered_ie(
         # Only add if not already covered in C's issues
         if not any(s.lower() in i.get("detail", "").lower() for i in all_issues):
             all_issues.append({"severity": "critical", "type": "unexplained_symptom", "detail": f"Unexplained: {s}"})
+    for mc in layer_a_json.get("missing_categories", []):
+        all_issues.append({"severity": "critical", "type": "missing_category", "detail": f"Missing diagnostic category: {mc}"})
 
     # Add Layer B findings
     for fc in layer_b_json.get("fabricated_citations", []):

@@ -26,7 +26,7 @@ from src.llm.prompt_templates import (
     adapt_prompt_for_complexity,
 )
 from src.llm.stage_adapter import resolve_icd_codes
-from src.utils.safety_checks import detect_red_flags
+from src.utils.safety_checks import detect_red_flags, detect_demographic_severity
 from src.core.zebra_detector import detect_zebras, format_zebra_alerts
 
 # Conditional imports — same pattern as original server.py
@@ -147,6 +147,121 @@ def _has_non_latin_medical_text(text: str) -> bool:
         1 for c in text if ord(c) > 127 and c.isalpha()
     )
     return non_ascii_alpha >= 3
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PRE-R1 CLINICAL TEXT ANNOTATION (adaptive language bridge)
+# ═══════════════════════════════════════════════════════════════════
+
+async def annotate_clinical_text_pre_r1(
+    patient_text: str,
+    r0_language: str,
+    r0_entities: dict,
+    groq_client: Any,
+    llm_client: Any,
+    llama_server_url: str,
+    local_only: bool,
+) -> str:
+    """Annotate non-English patient text with English medical terms BEFORE R1.
+
+    This is the adaptive language bridge: instead of relying on R1 to understand
+    every language's medical jargon, we pre-annotate with English equivalents.
+    R0 L1 already detects language — when non-English, this runs.
+
+    Approach: Ask LLM to extract and translate key medical terms inline,
+    returning annotated text that preserves the original but adds English context.
+
+    Returns:
+        Annotation block to APPEND to patient text before R1, or "" if not needed.
+    """
+    if r0_language == "en":
+        return ""
+
+    if not _has_non_latin_medical_text(patient_text[:800]):
+        return ""
+
+    # Build a focused annotation request from R0 entities + raw text
+    symptoms = r0_entities.get("symptoms", [])
+    vitals = r0_entities.get("vitals", {})
+    history = r0_entities.get("history", [])
+    medications = r0_entities.get("medications", [])
+
+    prompt_parts = [f"PATIENT TEXT (first 600 chars):\n{patient_text[:600]}"]
+    if symptoms:
+        prompt_parts.append(f"EXTRACTED SYMPTOMS: {', '.join(symptoms[:10])}")
+    if history:
+        prompt_parts.append(f"HISTORY ITEMS: {', '.join(history[:5])}")
+    if medications:
+        prompt_parts.append(f"MEDICATIONS: {', '.join(medications[:5])}")
+
+    system_msg = (
+        "You are a medical translator. The patient text below is in a non-English language.\n"
+        "Extract EVERY medical/clinical term and translate to standard English medical terminology.\n"
+        "For colloquial expressions, provide the correct medical term.\n"
+        "Include demographic information (age, sex, reproductive status) in English.\n\n"
+        "Output valid JSON ONLY:\n"
+        "{\n"
+        '  "demographic_summary": "e.g., 24-year-old female, reproductive age",\n'
+        '  "clinical_terms": [\n'
+        '    {"original": "term in original language", "english": "English medical term"}\n'
+        "  ],\n"
+        '  "key_findings_english": ["finding1 in English", "finding2 in English"],\n'
+        '  "symptom_pattern_english": "Brief English description of the clinical picture"\n'
+        "}"
+    )
+
+    messages = [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": "\n\n".join(prompt_parts)},
+    ]
+
+    raw = ""
+    try:
+        if groq_client and getattr(groq_client, "is_available", False) and not local_only:
+            raw = await call_groq_no_stream(groq_client, messages, max_tokens=512)
+        elif llm_client and llama_server_url:
+            raw = await call_llm_no_stream(llm_client, llama_server_url, messages, max_tokens=512)
+    except Exception as exc:
+        logger.warning("[PRE-R1-ANNOTATE] Translation failed: %s", exc)
+        return ""
+
+    if not raw:
+        return ""
+
+    result = parse_json_from_response(raw)
+    if not result:
+        return ""
+
+    # Build annotation block
+    parts = ["\n\n🌐 PRE-R1 CLINICAL ANNOTATION (translated from non-English text):"]
+
+    demo = result.get("demographic_summary", "")
+    if demo:
+        parts.append(f"DEMOGRAPHICS: {demo}")
+
+    terms = result.get("clinical_terms", [])
+    if terms:
+        parts.append("TERM TRANSLATIONS:")
+        for t in terms[:12]:
+            orig = t.get("original", "")
+            eng = t.get("english", "")
+            if orig and eng:
+                parts.append(f"  • '{orig}' = {eng}")
+
+    findings = result.get("key_findings_english", [])
+    if findings:
+        parts.append("KEY FINDINGS (English): " + "; ".join(findings[:8]))
+
+    pattern = result.get("symptom_pattern_english", "")
+    if pattern:
+        parts.append(f"CLINICAL PATTERN: {pattern}")
+
+    annotation = "\n".join(parts)
+    logger.info(
+        "[PRE-R1-ANNOTATE] Translated %d terms, %d findings for R1. Annotation: %d chars",
+        len(terms), len(findings), len(annotation),
+    )
+    return annotation
 
 
 async def _translate_clinical_context_for_r2(
@@ -324,6 +439,11 @@ async def run_safety(ws: WebSocket, patient_text: str, r0_result=None) -> dict:
 
     # Red flags — keyword-based
     red_flags = detect_red_flags(patient_text, patient_text.split())
+
+    # Demographic-aware severity escalation (adaptive: demographics × vitals → alerts)
+    # Pass red_flags as proxy for vitals context; also scan raw text for vital signs
+    demographic_alerts = detect_demographic_severity(patient_text, red_flags)
+    red_flags.extend(demographic_alerts)
 
     # Merge DLLM R0 context-aware red flags (if available)
     if r0_result is not None:

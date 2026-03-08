@@ -124,6 +124,134 @@ def detect_red_flags(chief_complaint: str, symptoms: list[str]) -> list[str]:
     return found
 
 
+# ── Demographic-aware severity escalation ───────────────────────────
+# Adaptive: [demographic pattern] + [critical vitals] → mandatory specialty alert.
+# NOT disease-specific — catches any demographic-vital mismatch.
+
+# Compiled patterns for demographic extraction (EN + TR)
+_AGE_PATTERN = re.compile(
+    r'(?:(\d{1,3})\s*(?:yaş|yaşında|yo|y/o|year[s]?\s*old|year[s]?|y\b))',
+    re.IGNORECASE,
+)
+_SEX_FEMALE_PATTERN = re.compile(
+    r'\b(?:female|kadın|kız|woman|F\b|bayan)',
+    re.IGNORECASE,
+)
+_SEX_MALE_PATTERN = re.compile(
+    r'\b(?:male|erkek|adam|M\b|bay)\b',
+    re.IGNORECASE,
+)
+_ANTICOAGULANT_PATTERN = re.compile(
+    r'\b(?:warfarin|coumadin|heparin|enoxaparin|rivaroxaban|apixaban|edoxaban|'
+    r'dabigatran|kumadin|kan\s*sulandırıcı|antikoagül)',
+    re.IGNORECASE,
+)
+
+
+def detect_demographic_severity(patient_text: str, vitals_flags: list[str]) -> list[str]:
+    """Cross-reference patient demographics with critical vitals for severity escalation.
+
+    Adaptive pattern: when shock/critical vitals appear alongside specific demographics,
+    generate mandatory specialty consideration alerts. NOT disease-specific.
+
+    Args:
+        patient_text: Raw patient text.
+        vitals_flags: Already-detected vital sign red flags from check_vitals_red_flags().
+
+    Returns:
+        List of demographic-aware severity alerts.
+    """
+    alerts: list[str] = []
+    text_lower = patient_text.lower()
+
+    # Extract age
+    age_match = _AGE_PATTERN.search(patient_text)
+    age = int(age_match.group(1)) if age_match else None
+
+    # Detect sex
+    is_female = bool(_SEX_FEMALE_PATTERN.search(patient_text))
+    is_male = bool(_SEX_MALE_PATTERN.search(patient_text))
+
+    # Detect shock pattern in vitals flags
+    has_shock = any("shock" in f.lower() or "systolic bp" in f.lower() for f in vitals_flags)
+    has_tachycardia = any("heart rate" in f.lower() and ">" in f for f in vitals_flags)
+    has_critical_vitals = has_shock or has_tachycardia
+
+    # Also check raw text for vital shock patterns not caught by structured vitals
+    bp_match = re.search(r'(?:bp|ta|tansiyon|blood\s*pressure)\s*[:\s]*(\d+)/(\d+)', text_lower)
+    hr_match = re.search(r'(?:hr|nabız|pulse|heart\s*rate)\s*[:\s]*(\d+)', text_lower)
+    if bp_match:
+        sbp = int(bp_match.group(1))
+        if sbp < 90:
+            has_shock = True
+            has_critical_vitals = True
+    if hr_match:
+        hr = int(hr_match.group(1))
+        if hr > 120:
+            has_tachycardia = True
+            has_critical_vitals = True
+
+    # Has abdominal/pelvic pain
+    has_abdominal_pain = bool(re.search(
+        r'(?:karın|abdom|pelvi|batın|alt\s*karın|lower\s*abdomen|pelvic)\s*(?:ağrı|pain|hassas|tender)',
+        text_lower,
+    ))
+
+    # Has syncope/LOC
+    has_syncope = bool(re.search(
+        r'\b(?:syncope|bayılma|bilinç\s*kaybı|loss\s*of\s*consciousness|fainted|passed\s*out)\b',
+        text_lower,
+    ))
+
+    if not has_critical_vitals:
+        return alerts
+
+    # ─ Pattern 1: Reproductive-age female + shock → OB/GYN mandate
+    if is_female and age is not None and 12 <= age <= 55 and has_shock:
+        alerts.append(
+            "🚨 DEMOGRAPHIC SEVERITY: Shock in reproductive-age female — "
+            "MUST rule out obstetric/gynecological emergency "
+            "(ectopic pregnancy, ovarian torsion, hemorrhage, ruptured cyst). "
+            "OB/GYN differential is MANDATORY."
+        )
+
+    # ─ Pattern 2: Female + shock + abdominal pain → heightened OB/GYN
+    if is_female and has_abdominal_pain and (has_shock or has_syncope):
+        alerts.append(
+            "🚨 DEMOGRAPHIC SEVERITY: Female + abdominal pain + hemodynamic instability — "
+            "Gynecological/obstetric cause MUST be top differential until excluded. "
+            "Referred shoulder pain in this context = hemoperitoneum until proven otherwise."
+        )
+
+    # ─ Pattern 3: Elderly + shock + anticoagulant → occult hemorrhage
+    on_anticoagulant = bool(_ANTICOAGULANT_PATTERN.search(patient_text))
+    if age is not None and age >= 65 and has_shock and on_anticoagulant:
+        alerts.append(
+            "🚨 DEMOGRAPHIC SEVERITY: Shock in anticoagulated elderly patient — "
+            "MUST rule out occult hemorrhage (GI, retroperitoneal, intracranial). "
+            "Anticoagulation + shock = hemorrhagic emergency until proven otherwise."
+        )
+
+    # ─ Pattern 4: Child + abdominal pain + shock → surgical emergency
+    if age is not None and age < 14 and has_abdominal_pain and has_critical_vitals:
+        alerts.append(
+            "🚨 DEMOGRAPHIC SEVERITY: Pediatric patient + abdominal pain + critical vitals — "
+            "MUST rule out surgical emergency (intussusception, volvulus, appendiceal perforation). "
+            "Pediatric surgical differential is MANDATORY."
+        )
+
+    # ─ Pattern 5: Young adult + shock + syncope → vascular/hemorrhagic
+    if age is not None and 15 <= age <= 45 and has_shock and has_syncope:
+        alerts.append(
+            "🚨 DEMOGRAPHIC SEVERITY: Young adult + shock + syncope — "
+            "MUST rule out hemorrhagic and vascular emergencies "
+            "(ruptured aneurysm, ectopic, splenic rupture, aortic dissection). "
+            "Do NOT attribute to vasovagal without excluding hemorrhage."
+        )
+
+    return alerts
+
+
 def check_vitals_red_flags(
     spo2: float | None = None,
     temperature: float | None = None,

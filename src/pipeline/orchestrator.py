@@ -34,7 +34,7 @@ from src.pipeline.streaming import (
     stream_llm_completion,
     parse_json_from_response,
 )
-from src.pipeline.stages import run_safety, run_r1, run_r2
+from src.pipeline.stages import run_safety, run_r1, run_r2, annotate_clinical_text_pre_r1
 from src.pipeline.token_budget import TokenBudgetManager
 from src.pipeline.treatment_safety import (
     IEConsensusTracker,
@@ -488,6 +488,28 @@ async def run_rrrie_chat(
             r0_hints.append("Detected patterns: " + ", ".join(pattern_names))
         if r0_hints:
             r1_patient_text += "\n".join(r0_hints)
+
+        # Pre-R1 Clinical Text Annotation: translate non-English terms before R1
+        if r0_result.language != "en":
+            try:
+                annotation = await annotate_clinical_text_pre_r1(
+                    patient_text=patient_text,
+                    r0_language=r0_result.language,
+                    r0_entities=r0_result.entities,
+                    groq_client=groq_client,
+                    llm_client=llm_client,
+                    llama_server_url=llama_server_url,
+                    local_only=local_only,
+                )
+                if annotation:
+                    r1_patient_text += annotation
+                    await ws.send_json({
+                        "type": "info",
+                        "stage": "R1",
+                        "content": "🌐 Non-English text detected — clinical terms annotated with English equivalents for R1.",
+                    })
+            except Exception as exc:
+                logger.warning("[PRE-R1] Clinical annotation failed (non-fatal): %s", exc)
 
     r1_json, r1_result, r1_model_label = await run_r1(
         ws, r1_patient_text,
