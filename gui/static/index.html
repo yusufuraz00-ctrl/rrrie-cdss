@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RRRIE-CDSS — Clinical Decision Support Engine</title>
+    <link rel="stylesheet" href="/static/style.css?v=2.2">
+    <!-- Font Awesome for sleek icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ── Header ── -->
+    <header class="navbar">
+        <div class="nav-left">
+            <div class="logo-box">
+                <i class="fa-solid fa-staff-snake"></i>
+            </div>
+            <div class="brand">
+                <h1>RRRIE-CDSS <span class="version">v2.1</span></h1>
+                <p>Cognitive Clinical Decision Support</p>
+            </div>
+        </div>
+
+        <div class="nav-right">
+            <div class="status-indicator">
+                <div class="pulse-dot checking" id="statusDot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+            
+            <div class="mode-switch">
+                <div class="test-case-selector" id="globalTestCaseSelector">
+                    <button onclick="toggleTestCaseDropdown(event)" class="case-btn">
+                        <i class="fa-solid fa-microscope"></i> Vaka Test Et <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div id="testCaseDropdown" class="dropdown-content">
+                        <div class="dropdown-loader">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Yükleniyor...
+                        </div>
+                    </div>
+                </div>
+                
+                <span class="mode-divider"></span>
+                <button id="btnSuperThinking" class="mode-btn" onclick="setMode('super')" title="Super: ALL stages use Gemini 3 Flash (fast + smart)">
+                    <i class="fa-solid fa-rocket"></i> Super
+                </button>
+                <button id="btnDeep" class="mode-btn" onclick="setMode('deep')" title="Deep Thinking: ALL stages use Gemini 3 Pro (max quality with thinking)">
+                    <i class="fa-solid fa-atom"></i> Deep
+                </button>
+                <button id="btnThinking" class="mode-btn active" onclick="setMode('thinking')" title="Thinking: Deep analysis with Groq 70B (R1/R3) + Local (R2/IE)">
+                    <i class="fa-solid fa-brain"></i> Thinking
+                </button>
+                <button id="btnFast" class="mode-btn" onclick="setMode('fast')">
+                    <i class="fa-solid fa-bolt"></i> Fast Triage
+                </button>
+                <span class="mode-divider"></span>
+                <button id="btnLocal" class="mode-btn local-toggle" onclick="toggleLocal()" title="Local: all stages use Qwen 3.5-4B instead of cloud models">
+                    <i class="fa-solid fa-microchip"></i> Local
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Main Layout ── -->
+    <div class="app-container">
+        
+        <!-- Left Sidebar: Pipeline Engine Tracker -->
+        <aside class="pipeline-tracker">
+            <div class="tracker-header">
+                <h2><i class="fa-solid fa-microchip"></i> Engine State</h2>
+                <div class="tracker-stats" id="trackerStats" style="opacity: 0;">
+                    <span id="statTime">0.0s</span> <span class="separator">•</span> <span id="statSpeed" class="speed-badge">0 t/s</span>
+                </div>
+            </div>
+
+            <div class="timeline" id="pipelineTimeline">
+                
+                <!-- Stage 0: Safety -->
+                <div class="timeline-step" id="step-SAFETY" data-stage="SAFETY">
+                    <div class="step-icon"><i class="fa-solid fa-shield-cat"></i></div>
+                    <div class="step-content">
+                        <h3>Safety Check</h3>
+                        <p>Red flags & Zebras</p>
+                    </div>
+                </div>
+                <div class="timeline-connector" id="conn-SAFETY"></div>
+
+                <!-- Stage 1: R1 -->
+                <div class="timeline-step" id="step-R1" data-stage="R1">
+                    <div class="step-icon"><i class="fa-solid fa-stethoscope"></i></div>
+                    <div class="step-content">
+                        <h3>R1 Analysis</h3>
+                        <p>Initial hypotheses</p>
+                    </div>
+                </div>
+                <div class="timeline-connector" id="conn-R1"></div>
+
+                <!-- Stage 2: R2 -->
+                <div class="timeline-step" id="step-R2" data-stage="R2">
+                    <div class="step-icon"><i class="fa-solid fa-book-medical"></i></div>
+                    <div class="step-content">
+                        <h3>R2 Research</h3>
+                        <p>PubMed & ICD-11</p>
+                    </div>
+                </div>
+                <div class="timeline-connector" id="conn-R2"></div>
+
+                <!-- Iterative Loop Area -->
+                <div class="iteration-container" id="iterationContainer">
+                    <div class="iteration-title"><i class="fa-solid fa-rotate-right"></i> Layer C Loop</div>
+                    
+                    <div class="timeline-step loop-step" id="step-R3" data-stage="R3">
+                        <div class="step-icon"><i class="fa-solid fa-code-branch"></i></div>
+                        <div class="step-content">
+                            <h3>R3 Synthesis</h3>
+                            <p>Evidence integration</p>
+                            <div class="sub-badges" id="r3-badges"></div>
+                        </div>
+                    </div>
+                    <div class="timeline-connector dashed" id="conn-R3"></div>
+
+                    <div class="timeline-step loop-step" id="step-IE" data-stage="IE">
+                        <div class="step-icon"><i class="fa-solid fa-clipboard-check"></i></div>
+                        <div class="step-content">
+                            <h3>IE Evaluation</h3>
+                            <p>Checklist & critique</p>
+                            <div class="sub-badges" id="ie-badges"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="timeline-connector" id="conn-IE"></div>
+
+                <!-- Post-Mortem Feedback Loop -->
+                <div class="timeline-step" id="step-POST_MORTEM" data-stage="POST_MORTEM" style="display: none;">
+                    <div class="step-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                    <div class="step-content">
+                        <h3>Self-Reflection</h3>
+                        <p>Post-Mortem Review</p>
+                    </div>
+                </div>
+                <div class="timeline-connector" id="conn-POST_MORTEM" style="display: none;"></div>
+
+                <!-- Memory Core -->
+                <div class="timeline-step" id="step-MEMORY" data-stage="MEMORY">
+                    <div class="step-icon mem-icon"><i class="fa-solid fa-brain"></i></div>
+                    <div class="step-content">
+                        <h3>Memory Action</h3>
+                        <p>Store & Consolidate</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="memory-stats-box" id="memoryStatsBox" style="opacity: 0.5;">
+                <h4><i class="fa-solid fa-database"></i> Neural Memory</h4>
+                <div class="mem-grid">
+                    <div class="mem-item">
+                        <span class="mem-val" id="memT1">0</span>
+                        <span class="mem-lbl">Cases</span>
+                    </div>
+                    <div class="mem-item">
+                        <span class="mem-val" id="memT2">0</span>
+                        <span class="mem-lbl">Patterns</span>
+                    </div>
+                    <div class="mem-item">
+                        <span class="mem-val" id="memT3">0</span>
+                        <span class="mem-lbl">Principles</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right Side: Chat Interface -->
+        <main class="chat-container">
+            <div class="chat-history" id="messages">
+                
+                <!-- Welcome UI -->
+                <div class="welcome-box" id="welcome">
+                    <div class="welcome-hero">
+                        <div class="hero-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                        <h2>RRRIE Architecture</h2>
+                        <p>A cognitive pipeline engineered for deep clinical reasoning</p>
+                    </div>
+                    
+                    <div class="capabilities-grid">
+                        <div class="cap-card">
+                            <i class="fa-solid fa-triangle-exclamation text-red"></i>
+                            <div>
+                                <strong>Safety First</strong>
+                                <span>Immediate red flags & emergency triaging.</span>
+                            </div>
+                        </div>
+                        <div class="cap-card">
+                            <i class="fa-solid fa-magnifying-glass-chart text-blue"></i>
+                            <div>
+                                <strong>Evidence Backed</strong>
+                                <span>Live PubMed queries & ICD-11 resolution.</span>
+                            </div>
+                        </div>
+                        <div class="cap-card">
+                            <i class="fa-solid fa-dna text-purple"></i>
+                            <div>
+                                <strong>Self-Evolving</strong>
+                                <span>3-tier generative memory system learns from cases.</span>
+                            </div>
+                        </div>
+                        <div class="cap-card">
+                            <i class="fa-solid fa-layer-group text-green"></i>
+                            <div>
+                                <strong>Adaptable Compute</strong>
+                                <span>Layer C scales iterations automatically for hard cases.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="examples-row">
+                        <span>Try an example case:</span>
+                        <button onclick="useExample('rabies')"><i class="fa-solid fa-dog"></i> Rabies / Dog Bite</button>
+                        <button onclick="useExample('pneumonia')"><i class="fa-solid fa-lungs-virus"></i> Pneumonia</button>
+                        <button onclick="useExample('mi')"><i class="fa-solid fa-heart-crack"></i> Atypical MI</button>
+                        
+                        <span class="mode-divider" style="margin: 0 10px;"></span>
+                        <span style="color: #a6adc8; font-size: 0.9em;">Or use the "Vaka Test Et" menu at the top right to verify Clinical Pearls.</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Input Box -->
+            <div class="input-panel">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="inputField" 
+                        placeholder="Describe patient history, symptoms, and vitals..." 
+                        rows="1"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="disclaimer">
+                    <i class="fa-solid fa-circle-info"></i> Simulation and research purposes only. Not a medical device.
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Template script included last -->
+    <script src="/static/app.js?v=2.2"></script>
+</body>
+</html>

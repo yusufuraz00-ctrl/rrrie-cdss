@@ -1,0 +1,55 @@
+{
+  "case_id": "TC-016",
+  "title": "Major Depressive Disorder - Severe with Suicidal Ideation",
+  "icd11_expected": "6A70",
+  "patient_data": {
+    "age": 38,
+    "sex": "female",
+    "chief_complaint": "Persistent low mood, insomnia, and thoughts of self-harm for 6 weeks",
+    "symptoms": [
+      "Persistent depressed mood — 'feels like a black hole' — every day for 6 weeks",
+      "Complete loss of interest in activities she previously enjoyed",
+      "Insomnia — wakes at 3 AM, unable to return to sleep (early morning awakening)",
+      "Significant appetite loss with 5 kg weight loss",
+      "Difficulty concentrating at work (performance declining)",
+      "Psychomotor retardation — slow speech and movement",
+      "Feelings of worthlessness and excessive guilt",
+      "Passive suicidal ideation — 'life would be easier if I didn't wake up'",
+      "No active plan or intent, no prior attempts"
+    ],
+    "vitals": {
+      "temperature": 36.6,
+      "heart_rate": 72,
+      "respiratory_rate": 16,
+      "blood_pressure": "120/75",
+      "spo2": 98.0
+    },
+    "history": "One prior depressive episode 5 years ago (treated with sertraline, discontinued 2 years ago). Recent divorce 3 months ago. No substance abuse. Hypothyroidism",
+    "medications": ["Levothyroxine 100mcg daily"],
+    "allergies": ["Paroxetine (sexual dysfunction — switched previously)"],
+    "lab_results": {
+      "TSH": "2.4 mIU/L (normal — hypothyroidism well-controlled)",
+      "vitamin_B12": "350 pg/mL (normal)",
+      "folate": "8 ng/mL (normal)",
+      "CBC": "Normal",
+      "PHQ9_score": "22 (severe depression)",
+      "Columbia_Suicide_Severity": "Passive ideation, no plan"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Major Depressive Disorder, Single Episode, Severe",
+    "expected_icd11_codes": ["6A70", "6A70.3"],
+    "should_detect": [
+      "Severity: PHQ-9 = 22 (severe), passive suicidal ideation",
+      "Safety assessment: no active plan — but requires safety planning protocol",
+      "Restart SSRI — sertraline (previously effective), avoid paroxetine (intolerance)",
+      "Consider starting sertraline 50mg → titrate to 100-200mg over 4-6 weeks",
+      "Refer to psychotherapy (CBT preferred for depression)",
+      "Risk factors: recent major life stressor (divorce), prior episode, isolated",
+      "Monitor closely in first 2-4 weeks of SSRI initiation (paradoxical suicidality risk)",
+      "TSH normal — hypothyroidism not contributing",
+      "Social support assessment, emergency contact plan"
+    ],
+    "red_flags": ["Suicidal ideation (passive)", "PHQ-9 > 20", "Weight loss", "Early morning awakening", "Functional impairment"]
+  }
+}

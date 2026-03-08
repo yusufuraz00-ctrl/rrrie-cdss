@@ -1,0 +1,38 @@
+{
+  "case_id": "TC-001",
+  "title": "Community-Acquired Pneumonia - Typical Presentation",
+  "icd11_expected": "CA40.0",
+  "patient_data": {
+    "age": 55,
+    "sex": "male",
+    "chief_complaint": "Productive cough for 5 days, fever, shortness of breath",
+    "symptoms": [
+      "Productive cough with yellow-green sputum",
+      "Fever (38.9°C)",
+      "Dyspnea on exertion",
+      "Right-sided chest pain (pleuritic)",
+      "Fatigue and malaise"
+    ],
+    "vitals": {
+      "temperature": 38.9,
+      "heart_rate": 105,
+      "respiratory_rate": 24,
+      "blood_pressure": "130/80",
+      "spo2": 92.0
+    },
+    "history": "Hypertension, Type 2 Diabetes, non-smoker",
+    "medications": ["Metformin 1000mg BID", "Lisinopril 10mg daily"],
+    "allergies": ["Penicillin (rash)"]
+  },
+  "expected_output": {
+    "primary_diagnosis": "Community-Acquired Pneumonia",
+    "expected_icd11_codes": ["CA40", "CA40.0"],
+    "should_detect": [
+      "Penicillin allergy → avoid amoxicillin",
+      "Renal function check needed (Metformin + DM)",
+      "CURB-65 or PSI scoring",
+      "Alternative antibiotic recommendation (e.g., respiratory fluoroquinolone or azithromycin)"
+    ],
+    "red_flags": ["SpO2 < 94%", "Tachypnea"]
+  }
+}

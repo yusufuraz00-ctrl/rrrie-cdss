@@ -1,0 +1,45 @@
+{
+  "case_id": "WHO-006",
+  "title": "Tetanus Neonatorum — Newborn with Trismus and Spasms",
+  "icd11_expected": "1C13",
+  "patient_data": {
+    "age": 0,
+    "sex": "male",
+    "chief_complaint": "7-day-old newborn unable to suck, jaw stiffness, generalized spasms",
+    "symptoms": [
+      "Inability to suck or feed since yesterday",
+      "Trismus — jaw clenched shut",
+      "Generalized muscle rigidity",
+      "Opisthotonus triggered by touch or noise",
+      "Excessive crying becoming weak",
+      "Umbilical stump appears infected — purulent discharge"
+    ],
+    "vitals": {
+      "temperature": 38.2,
+      "heart_rate": 180,
+      "respiratory_rate": 50,
+      "blood_pressure": "N/A (neonatal)",
+      "spo2": 88.0
+    },
+    "history": "Home birth attended by traditional birth attendant. Umbilical cord cut with unsterile instrument. Mother's vaccination status unknown. Rural area with no prenatal care.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "umbilical_culture": "pending"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Neonatal tetanus",
+    "expected_icd11_codes": ["1C13", "1C13.0"],
+    "should_detect": [
+      "Neonatal tetanus — WHO elimination target disease",
+      "Onset day 3-14 of life with inability to suck + rigidity = classic presentation",
+      "Unsterile cord care is the source of infection",
+      "Treatment: tetanus immunoglobulin (TIG), wound care, diazepam for spasms",
+      "ICU admission — risk of respiratory failure",
+      "Maternal tetanus vaccination would have prevented this",
+      "WHO notifiable disease — report immediately"
+    ],
+    "red_flags": ["SpO2 < 92%", "Neonatal emergency", "Generalized spasms", "Unable to feed"]
+  }
+}

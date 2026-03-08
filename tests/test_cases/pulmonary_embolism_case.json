@@ -1,0 +1,51 @@
+{
+  "case_id": "TC-010",
+  "title": "Pulmonary Embolism - Post-Operative",
+  "icd11_expected": "BB00.0",
+  "patient_data": {
+    "age": 45,
+    "sex": "female",
+    "chief_complaint": "Sudden onset sharp chest pain and shortness of breath 5 days after knee replacement surgery",
+    "symptoms": [
+      "Acute pleuritic chest pain — right-sided, worse with inspiration",
+      "Sudden dyspnea at rest",
+      "Tachycardia and lightheadedness",
+      "Right calf swelling noted since yesterday",
+      "No hemoptysis",
+      "Mild anxiety and sense of impending doom"
+    ],
+    "vitals": {
+      "temperature": 37.4,
+      "heart_rate": 118,
+      "respiratory_rate": 26,
+      "blood_pressure": "105/70",
+      "spo2": 89.0
+    },
+    "history": "Total knee replacement 5 days ago, on oral contraceptives, BMI 32, no prior VTE history",
+    "medications": ["Enoxaparin 40mg SC daily (started post-op)", "Celecoxib 200mg BID", "Ethinylestradiol/Levonorgestrel (OCP)"],
+    "allergies": [],
+    "lab_results": {
+      "D-dimer": "4200 ng/mL (elevated)",
+      "troponin_I": "0.08 ng/mL (mildly elevated)",
+      "BNP": "350 pg/mL (elevated)",
+      "ABG_pH": "7.47",
+      "ABG_pCO2": "28 mmHg",
+      "ABG_pO2": "62 mmHg",
+      "Wells_score": "7.5 (high probability)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Pulmonary Embolism",
+    "expected_icd11_codes": ["BB00.0", "BB00"],
+    "should_detect": [
+      "CT pulmonary angiography STAT",
+      "Therapeutic anticoagulation — IV heparin drip (switch from prophylactic enoxaparin)",
+      "Right ventricular strain assessment (elevated troponin + BNP)",
+      "Consider thrombolysis if hemodynamically unstable (massive PE)",
+      "Stop oral contraceptives immediately",
+      "Lower extremity duplex ultrasound for concurrent DVT",
+      "Risk factors: post-op immobility + OCP + obesity"
+    ],
+    "red_flags": ["SpO2 < 90%", "Tachycardia > 110", "RV strain markers elevated", "Hypotension risk"]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "case_id": "WHO-003",
+  "title": "Tuberculosis — Pulmonary TB with Hemoptysis",
+  "icd11_expected": "1B10",
+  "patient_data": {
+    "age": 45,
+    "sex": "male",
+    "chief_complaint": "Chronic cough for 3 weeks with blood-streaked sputum, night sweats, weight loss",
+    "symptoms": [
+      "Productive cough for 3+ weeks",
+      "Hemoptysis — blood-streaked sputum",
+      "Night sweats drenching bedsheets",
+      "Unintentional weight loss of 8 kg in 2 months",
+      "Low-grade evening fever",
+      "Fatigue and malaise",
+      "Loss of appetite"
+    ],
+    "vitals": {
+      "temperature": 37.8,
+      "heart_rate": 92,
+      "respiratory_rate": 20,
+      "blood_pressure": "110/70",
+      "spo2": 95.0
+    },
+    "history": "Immigration from high TB-burden country (India) 6 months ago. Lives in crowded housing with 8 people. No previous TB treatment. HIV status unknown.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "CXR": "Right upper lobe cavitary lesion with surrounding infiltrate",
+      "ESR": "68 mm/hr (elevated)",
+      "hemoglobin": "10.5 g/dL (mild anemia)",
+      "HIV_test": "pending"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Pulmonary tuberculosis",
+    "expected_icd11_codes": ["1B10", "1B11", "1B1Z"],
+    "should_detect": [
+      "Classic TB presentation: chronic cough >2 weeks + hemoptysis + night sweats + weight loss",
+      "Cavitary lesion on CXR — highly suggestive of active pulmonary TB",
+      "Sputum AFB smear and culture MUST be obtained",
+      "GeneXpert MTB/RIF for rapid diagnosis and rifampicin resistance detection",
+      "HIV testing mandatory — TB-HIV coinfection management",
+      "Respiratory isolation required — airborne precautions",
+      "Standard RIPE regimen: Rifampicin + Isoniazid + Pyrazinamide + Ethambutol",
+      "Contact tracing of household members"
+    ],
+    "red_flags": ["Hemoptysis", "Cavitary lesion", "Potential infectiousness", "HIV risk"]
+  }
+}

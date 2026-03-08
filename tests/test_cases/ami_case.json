@@ -1,0 +1,39 @@
+{
+  "case_id": "TC-002",
+  "title": "Acute Myocardial Infarction - Classic Presentation",
+  "icd11_expected": "BA41.0",
+  "patient_data": {
+    "age": 62,
+    "sex": "male",
+    "chief_complaint": "Severe chest pain radiating to left arm for 45 minutes",
+    "symptoms": [
+      "Crushing substernal chest pain",
+      "Pain radiating to left arm and jaw",
+      "Diaphoresis",
+      "Nausea and vomiting",
+      "Shortness of breath"
+    ],
+    "vitals": {
+      "temperature": 37.2,
+      "heart_rate": 110,
+      "respiratory_rate": 22,
+      "blood_pressure": "90/60",
+      "spo2": 94.0
+    },
+    "history": "Hyperlipidemia, Smoking 20 pack-years, Family history of CAD (father MI at 55)",
+    "medications": ["Atorvastatin 40mg daily"],
+    "allergies": []
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Myocardial Infarction (ST-Elevation)",
+    "expected_icd11_codes": ["BA41", "BA41.0"],
+    "should_detect": [
+      "Immediate 12-lead ECG needed",
+      "Troponin levels STAT",
+      "Aspirin 325mg chewing dose",
+      "Hypotension (90/60) - cautious with nitroglycerin",
+      "Emergency cardiology consultation / PCI"
+    ],
+    "red_flags": ["Chest pain radiating to arm", "Hypotension", "Tachycardia"]
+  }
+}

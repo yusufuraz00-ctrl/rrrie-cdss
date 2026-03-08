@@ -1,0 +1,60 @@
+{
+  "case_id": "WHO-009",
+  "title": "Typhoid Fever — Salmonella Typhi with Intestinal Complications",
+  "icd11_expected": "1A07.0",
+  "patient_data": {
+    "age": 22,
+    "sex": "female",
+    "chief_complaint": "Stepladder fever for 12 days, abdominal pain, confusion",
+    "symptoms": [
+      "Stepladder-pattern fever — rising daily over 12 days, now 40.3°C",
+      "Relative bradycardia for degree of fever",
+      "Diffuse abdominal pain — worse in right iliac fossa",
+      "Rose spots — faint salmon-colored macules on trunk",
+      "Hepatosplenomegaly on palpation",
+      "Coated tongue with red edges",
+      "Constipation initially, now diarrhea (pea-soup stools)",
+      "Headache and altered mental status — typhoid state",
+      "Mild abdominal distension and guarding"
+    ],
+    "vitals": {
+      "temperature": 40.3,
+      "heart_rate": 82,
+      "respiratory_rate": 22,
+      "blood_pressure": "95/60",
+      "spo2": 96.0
+    },
+    "history": "University student returned from South Asia 2 weeks ago. Drank unboiled water from street vendors. Not vaccinated against typhoid. No significant past medical history.",
+    "medications": [],
+    "allergies": ["sulfonamides"],
+    "lab_results": {
+      "WBC": 3200,
+      "hemoglobin": 10.8,
+      "platelet_count": 120000,
+      "blood_culture": "Salmonella enterica serovar Typhi — isolated",
+      "Widal_test": "O titer 1:320, H titer 1:640",
+      "CRP": 145,
+      "ALT": 88,
+      "AST": 92,
+      "total_bilirubin": 1.6,
+      "LDH": 320,
+      "abdominal_xray": "Air-fluid levels in right lower quadrant, no free air"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Typhoid fever (enteric fever) with early intestinal complication risk",
+    "expected_icd11_codes": ["1A07.0"],
+    "should_detect": [
+      "Typhoid fever confirmed by blood culture — Salmonella Typhi",
+      "Classic stepladder fever + relative bradycardia + rose spots = pathognomonic triad",
+      "WHO-recommended first-line: azithromycin or fluoroquinolone (check local resistance)",
+      "Risk of intestinal perforation — RLQ pain + guarding requires surgical watchfulness",
+      "Pea-soup diarrhea in second week indicates ileal inflammation",
+      "Typhoid state — altered consciousness from endotoxemia",
+      "Leukopenia typical of typhoid (paradoxically low WBC despite severe infection)",
+      "Public health notification required — trace and test contacts",
+      "Stool cultures for carrier state after treatment completion"
+    ],
+    "red_flags": ["Abdominal guarding — perforation risk", "Altered mental status", "Hypotension", "Air-fluid levels on imaging"]
+  }
+}

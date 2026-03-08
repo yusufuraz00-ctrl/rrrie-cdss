@@ -1,0 +1,51 @@
+{
+  "case_id": "WHO-001",
+  "title": "Cholera — Acute Watery Diarrhea in Endemic Region",
+  "icd11_expected": "1A00",
+  "patient_data": {
+    "age": 32,
+    "sex": "male",
+    "chief_complaint": "Severe watery diarrhea and vomiting for 12 hours",
+    "symptoms": [
+      "Profuse rice-water diarrhea (>10 episodes)",
+      "Projectile vomiting",
+      "Severe thirst",
+      "Muscle cramps in legs",
+      "Sunken eyes",
+      "Decreased urine output",
+      "Weakness and lethargy"
+    ],
+    "vitals": {
+      "temperature": 36.2,
+      "heart_rate": 130,
+      "respiratory_rate": 28,
+      "blood_pressure": "70/40",
+      "spo2": 97.0
+    },
+    "history": "Recent travel to cholera-endemic region (South Asia), drank untreated water from local well 2 days ago. No prior vaccination.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "Na": "128 mEq/L (low)",
+      "K": "2.8 mEq/L (low)",
+      "BUN": "45 mg/dL (high)",
+      "creatinine": "2.1 mg/dL (high)",
+      "bicarbonate": "12 mEq/L (low — metabolic acidosis)",
+      "stool_appearance": "rice-water, no blood"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Cholera",
+    "expected_icd11_codes": ["1A00"],
+    "should_detect": [
+      "Rice-water diarrhea — pathognomonic for cholera",
+      "Severe dehydration with hypovolemic shock",
+      "Aggressive IV fluid resuscitation (Ringer's lactate)",
+      "Electrolyte correction: hypokalemia and hyponatremia",
+      "Oral rehydration therapy when able to tolerate",
+      "Antibiotics: doxycycline or azithromycin to shorten illness",
+      "Notify public health authorities — cholera is notifiable"
+    ],
+    "red_flags": ["Hypotension (shock)", "Tachycardia", "Metabolic acidosis", "Hypokalemia"]
+  }
+}

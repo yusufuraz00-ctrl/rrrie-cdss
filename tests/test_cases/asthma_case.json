@@ -1,0 +1,53 @@
+{
+  "case_id": "TC-014",
+  "title": "Acute Asthma Exacerbation - Near Fatal",
+  "icd11_expected": "CA23.0",
+  "patient_data": {
+    "age": 25,
+    "sex": "female",
+    "chief_complaint": "Severe worsening shortness of breath and wheezing for 4 hours, not relieved by inhaler",
+    "symptoms": [
+      "Progressive dyspnea over 4 hours",
+      "Audible expiratory wheezing",
+      "Inability to speak in full sentences — only single words",
+      "Using accessory muscles (intercostal and suprasternal retractions)",
+      "Cough with thick mucoid sputum",
+      "Chest tightness",
+      "Triggered by viral URTI 3 days ago"
+    ],
+    "vitals": {
+      "temperature": 37.6,
+      "heart_rate": 130,
+      "respiratory_rate": 32,
+      "blood_pressure": "140/85",
+      "spo2": 88.0
+    },
+    "history": "Asthma since childhood (2 prior ICU admissions for asthma), allergic rhinitis, eczema. Poor medication compliance. Current URI for 3 days",
+    "medications": ["Salbutamol MDI PRN (uses 8-10 times/day this week)", "Fluticasone/salmeterol 250/50 (not using regularly)"],
+    "allergies": ["Aspirin (bronchospasm — Samter's triad)"],
+    "lab_results": {
+      "peak_flow": "120 L/min (predicted 450 L/min — 27%)",
+      "ABG_pH": "7.35",
+      "ABG_pCO2": "42 mmHg (ominous — should be LOW in asthma exacerbation)",
+      "ABG_pO2": "58 mmHg",
+      "WBC": "12.0 x10^9/L",
+      "CXR": "Hyperinflated lungs, no consolidation or pneumothorax"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Severe Acute Asthma Exacerbation (Life-Threatening)",
+    "expected_icd11_codes": ["CA23.0", "CA23"],
+    "should_detect": [
+      "Life-threatening: PEF < 33%, normal/rising pCO2, SpO2 < 92%",
+      "Continuous nebulized salbutamol 5mg + ipratropium 500mcg",
+      "IV magnesium sulfate 2g over 20 minutes",
+      "Systemic corticosteroids: IV hydrocortisone 100mg or oral prednisolone 40mg",
+      "ICU referral — rising pCO2 suggests impending respiratory failure",
+      "Prepare for intubation if deteriorating (ketamine preferred induction)",
+      "AVOID aspirin and NSAIDs (Samter's triad / AERD)",
+      "After stabilization: step-up controller therapy, reassess compliance",
+      "Pulsus paradoxus assessment"
+    ],
+    "red_flags": ["SpO2 < 90%", "Normal pCO2 in acute asthma (respiratory fatigue)", "PEF < 33% predicted", "Single-word sentences", "Prior ICU admission"]
+  }
+}

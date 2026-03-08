@@ -1,0 +1,58 @@
+{
+  "case_id": "TC-022",
+  "title": "Hyperthyroidism - Graves Disease with Thyroid Storm Risk",
+  "icd11_expected": "5A00.0",
+  "patient_data": {
+    "age": 35,
+    "sex": "female",
+    "chief_complaint": "Palpitations, tremor, weight loss, and heat intolerance worsening over 3 months",
+    "symptoms": [
+      "Palpitations — constant awareness of heartbeat, intermittent racing",
+      "Unintentional weight loss of 7 kg despite increased appetite",
+      "Fine resting tremor in both hands",
+      "Heat intolerance — excessive sweating",
+      "Anxiety and emotional lability (new)",
+      "Frequent loose bowel movements (3-4/day)",
+      "Bilateral eye prominence with gritty sensation (noted by family)",
+      "Insomnia and restlessness",
+      "Menstrual irregularity — oligomenorrhea"
+    ],
+    "vitals": {
+      "temperature": 37.5,
+      "heart_rate": 115,
+      "respiratory_rate": 18,
+      "blood_pressure": "150/65",
+      "spo2": 98.0
+    },
+    "history": "Previously healthy. Family history: sister with Hashimoto's, mother with vitiligo. Trying to conceive in next 6 months. Non-smoker",
+    "medications": ["Oral contraceptive (stopping soon for conception)"],
+    "allergies": ["Methimazole (agranulocytosis — developed sore throat and WBC 1.2 two years ago at another facility)"],
+    "lab_results": {
+      "TSH": "<0.01 mIU/L (suppressed)",
+      "free_T4": "4.8 ng/dL (normal 0.8-1.8)",
+      "free_T3": "12.5 pg/mL (normal 2.0-4.4)",
+      "TSH_receptor_antibodies": "Positive (12.5 IU/L — confirms Graves)",
+      "WBC": "5.2 x10^9/L (normal now)",
+      "liver_function": "ALT 45 U/L (mildly elevated)",
+      "ECG": "Sinus tachycardia 115 bpm, no AF",
+      "thyroid_ultrasound": "Diffusely enlarged thyroid with increased vascularity"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Graves Disease (Thyrotoxicosis with Diffuse Goitre)",
+    "expected_icd11_codes": ["5A00.0", "5A00"],
+    "should_detect": [
+      "CANNOT use methimazole (prior agranulocytosis — life-threatening ADR)",
+      "Propylthiouracil (PTU) as alternative antithyroid drug (also preferred if planning pregnancy)",
+      "Beta-blocker for symptomatic relief: propranolol 40mg TID (also blocks T4→T3 conversion)",
+      "Monitor liver function on PTU (hepatotoxicity risk — check LFTs q4-6wk)",
+      "Wide pulse pressure (150/65) — hyperdynamic circulation of thyrotoxicosis",
+      "Graves ophthalmopathy — ophthalmology referral for proptosis assessment",
+      "Discuss definitive treatment: radioiodine ablation vs thyroidectomy",
+      "Radioiodine CONTRAINDICATED if planning pregnancy within 6 months",
+      "Thyroidectomy may be best option given: methimazole allergy + fertility plans",
+      "Burch-Wartofsky score calculation to rule out impending thyroid storm"
+    ],
+    "red_flags": ["Tachycardia > 110 (thyrotoxic state)", "Severe T3/T4 elevation (storm risk)", "Methimazole allergy limits treatment options", "Fertility planning complicates definitive treatment"]
+  }
+}

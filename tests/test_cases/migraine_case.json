@@ -1,0 +1,40 @@
+{
+  "case_id": "TC-005",
+  "title": "Migraine with Aura - Recurrent Episode",
+  "icd11_expected": "8A80.1",
+  "patient_data": {
+    "age": 32,
+    "sex": "female",
+    "chief_complaint": "Severe unilateral headache with visual disturbances for 6 hours",
+    "symptoms": [
+      "Throbbing left-sided headache (8/10 severity)",
+      "Visual aura — zigzag lines 30 minutes before headache onset",
+      "Photophobia and phonophobia",
+      "Nausea without vomiting",
+      "Neck stiffness (mild)"
+    ],
+    "vitals": {
+      "temperature": 36.8,
+      "heart_rate": 72,
+      "respiratory_rate": 14,
+      "blood_pressure": "128/82",
+      "spo2": 99.0
+    },
+    "history": "Migraine with aura since age 18, ~2 episodes/month. Uses oral contraceptives",
+    "medications": ["Combined oral contraceptive pill", "Sumatriptan 50mg PRN"],
+    "allergies": ["Aspirin (GI bleeding)"],
+    "lab_results": {}
+  },
+  "expected_output": {
+    "primary_diagnosis": "Migraine with aura",
+    "expected_icd11_codes": ["8A80", "8A80.1"],
+    "should_detect": [
+      "COC + migraine with aura → increased stroke risk (WHO MEC Category 4)",
+      "Aspirin allergy → avoid NSAIDs from same class",
+      "Triptan use is appropriate but check frequency for MOH",
+      "Consider prophylaxis given ≥2 episodes/month",
+      "Rule out secondary headache (SAH) given neck stiffness"
+    ],
+    "red_flags": ["Neck stiffness — rule out SAH/meningitis"]
+  }
+}

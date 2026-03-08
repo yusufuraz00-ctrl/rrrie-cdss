@@ -1,0 +1,59 @@
+{
+  "case_id": "WHO-007",
+  "title": "Hepatitis B — Chronic HBV with Cirrhosis",
+  "icd11_expected": "1E50.1",
+  "patient_data": {
+    "age": 48,
+    "sex": "male",
+    "chief_complaint": "Progressive abdominal distension, jaundice, fatigue for 3 months",
+    "symptoms": [
+      "Abdominal distension — shifting dullness present",
+      "Jaundice — scleral icterus noted",
+      "Easy bruising — ecchymoses on arms",
+      "Spider angiomata on upper chest",
+      "Palmar erythema bilaterally",
+      "Dark urine, clay-colored stools",
+      "Weight loss — 8 kg over 3 months",
+      "Mild confusion — day-night reversal"
+    ],
+    "vitals": {
+      "temperature": 37.1,
+      "heart_rate": 92,
+      "respiratory_rate": 20,
+      "blood_pressure": "100/60",
+      "spo2": 96.0
+    },
+    "history": "Born in endemic region (Southeast Asia). No childhood hepatitis B vaccination. History of intravenous drug use in 20s. Known HBsAg-positive for 10 years, never treated. No prior liver imaging.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "HBsAg": "positive",
+      "HBeAg": "positive",
+      "HBV_DNA": "5.2 x 10^7 IU/mL (high)",
+      "ALT": 128,
+      "AST": 156,
+      "total_bilirubin": 6.8,
+      "albumin": 2.4,
+      "INR": 1.9,
+      "platelet_count": 68000,
+      "AFP": 245,
+      "creatinine": 1.1,
+      "ammonia": 88
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Chronic hepatitis B with decompensated cirrhosis",
+    "expected_icd11_codes": ["1E50.1", "DB93.1"],
+    "should_detect": [
+      "Chronic hepatitis B — WHO global hepatitis elimination target",
+      "Decompensated cirrhosis (Child-Pugh C likely): jaundice, ascites, coagulopathy, low albumin",
+      "Hepatic encephalopathy suspected — confusion + elevated ammonia",
+      "Elevated AFP (245) — hepatocellular carcinoma screening urgently needed",
+      "High HBV viral load needs antiviral therapy — tenofovir or entecavir",
+      "Nucleos(t)ide analogue therapy is WHO-recommended first-line",
+      "Liver transplant evaluation may be needed",
+      "Screen household contacts and vaccinate"
+    ],
+    "red_flags": ["INR 1.9 — coagulopathy", "Albumin 2.4 — liver synthetic failure", "AFP elevated — HCC risk", "Hepatic encephalopathy"]
+  }
+}

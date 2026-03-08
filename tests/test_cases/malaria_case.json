@@ -1,0 +1,50 @@
+{
+  "case_id": "TC-008",
+  "title": "Malaria (P. falciparum) - Returning Traveler",
+  "icd11_expected": "1F40",
+  "patient_data": {
+    "age": 35,
+    "sex": "male",
+    "chief_complaint": "High fever, chills, and severe headache for 4 days after returning from Nigeria",
+    "symptoms": [
+      "Cyclical high fever (40°C) with rigors",
+      "Severe headache",
+      "Profuse sweating",
+      "Myalgia and arthralgia",
+      "Nausea and vomiting",
+      "Dark urine (cola-colored)"
+    ],
+    "vitals": {
+      "temperature": 40.1,
+      "heart_rate": 115,
+      "respiratory_rate": 22,
+      "blood_pressure": "95/60",
+      "spo2": 95.0
+    },
+    "history": "Returned from Lagos, Nigeria 10 days ago. No malaria prophylaxis taken. No significant PMH",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "hemoglobin": "9.2 g/dL",
+      "platelets": "68 x10^9/L",
+      "total_bilirubin": "4.2 mg/dL",
+      "LDH": "580 U/L",
+      "creatinine": "1.6 mg/dL",
+      "blood_smear": "Ring forms seen, parasitemia ~8%"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Severe Malaria (P. falciparum)",
+    "expected_icd11_codes": ["1F40", "1F40.0"],
+    "should_detect": [
+      "Parasitemia >2% → severe malaria criteria",
+      "IV artesunate as first-line (not oral)",
+      "Monitor for cerebral malaria, ARDS, renal failure",
+      "Hemolytic anemia (low Hb, high LDH, high bilirubin)",
+      "Thrombocytopenia — avoid IM injections",
+      "WHO severity criteria assessment",
+      "Report to public health authorities"
+    ],
+    "red_flags": ["Hypotension", "High parasitemia", "Renal impairment", "Severe anemia", "Altered consciousness risk"]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "case_id": "TC-021",
+  "title": "Acute Decompensated Heart Failure - Elderly",
+  "icd11_expected": "BD10",
+  "patient_data": {
+    "age": 75,
+    "sex": "female",
+    "chief_complaint": "Progressive shortness of breath, orthopnea, and bilateral leg swelling for 1 week",
+    "symptoms": [
+      "Progressive exertional dyspnea — now at rest (NYHA IV)",
+      "Orthopnea — sleeps with 4 pillows, wakes up gasping (PND)",
+      "Bilateral ankle and pretibial pitting edema",
+      "Weight gain of 5 kg over 2 weeks",
+      "Productive cough with frothy pink sputum",
+      "Fatigue and reduced exercise tolerance",
+      "Abdominal bloating, early satiety, and RUQ discomfort"
+    ],
+    "vitals": {
+      "temperature": 36.7,
+      "heart_rate": 105,
+      "respiratory_rate": 28,
+      "blood_pressure": "160/95",
+      "spo2": 88.0
+    },
+    "history": "Known HFrEF (EF 30% by echo 6 months ago), ischaemic cardiomyopathy post MI (2019), atrial fibrillation, hypertension, type 2 DM, CKD stage 3 (eGFR 38)",
+    "medications": ["Ramipril 5mg BID", "Bisoprolol 5mg daily", "Furosemide 40mg daily", "Spironolactone 25mg daily", "Apixaban 5mg BID", "Metformin 500mg BID", "Empagliflozin 10mg daily"],
+    "allergies": ["Sacubitril/valsartan (angioedema)"],
+    "lab_results": {
+      "BNP": "1850 pg/mL (severely elevated)",
+      "troponin_I": "0.04 ng/mL (mildly elevated — chronic HF)",
+      "creatinine": "1.9 mg/dL (baseline 1.5 — worsening)",
+      "potassium": "5.4 mEq/L (elevated — ACEi + spironolactone)",
+      "sodium": "130 mEq/L (dilutional hyponatremia)",
+      "hemoglobin": "10.5 g/dL",
+      "CXR": "Cardiomegaly, bilateral pleural effusions, pulmonary edema (bat-wing pattern)",
+      "ECG": "Atrial fibrillation rate 105, LVH, no acute ST changes"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Decompensated Heart Failure (HFrEF)",
+    "expected_icd11_codes": ["BD10", "BD10.0"],
+    "should_detect": [
+      "IV furosemide 40-80mg bolus (double oral dose) — target urine output >0.5 mL/kg/hr",
+      "Oxygen therapy to maintain SpO2 >94%, consider CPAP/BiPAP if no improvement",
+      "Fluid and sodium restriction (1.5L/day fluid, <2g Na)",
+      "Continue GDMT (ACEi + beta-blocker + MRA + SGLT2i)",
+      "Reduce spironolactone or hold if K+ rises >5.5 (currently 5.4)",
+      "Hold metformin if creatinine rising (AKI risk)",
+      "Monitor daily weights, strict I&O",
+      "CANNOT use sacubitril/valsartan (angioedema history)",
+      "Rate control AF — digoxin consideration if beta-blocker inadequate",
+      "Assess precipitant: dietary indiscretion, medication non-compliance, infection, arrhythmia"
+    ],
+    "red_flags": ["SpO2 < 90%", "Pulmonary edema (pink frothy sputum)", "Hyperkalemia (K+ 5.4 with MRA)", "Worsening renal function", "Dilutional hyponatremia"]
+  }
+}

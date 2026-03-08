@@ -1,0 +1,49 @@
+{
+  "case_id": "TC-007",
+  "title": "COPD Acute Exacerbation",
+  "icd11_expected": "CA22",
+  "patient_data": {
+    "age": 68,
+    "sex": "male",
+    "chief_complaint": "Worsening breathlessness for 3 days with increased sputum",
+    "symptoms": [
+      "Increased dyspnea at rest",
+      "Increased sputum volume and purulence (green)",
+      "Worsening wheeze",
+      "Bilateral ankle edema",
+      "Unable to complete sentences"
+    ],
+    "vitals": {
+      "temperature": 37.8,
+      "heart_rate": 108,
+      "respiratory_rate": 28,
+      "blood_pressure": "145/90",
+      "spo2": 86.0
+    },
+    "history": "COPD GOLD stage III, 40 pack-year smoking history (quit 2 years ago), Congestive heart failure",
+    "medications": ["Tiotropium 18mcg daily", "Salmeterol/Fluticasone 50/500 BID", "Furosemide 40mg daily", "Warfarin 5mg daily"],
+    "allergies": [],
+    "lab_results": {
+      "WBC": "13.5 x10^9/L",
+      "CRP": "52 mg/L",
+      "ABG_pH": "7.32",
+      "ABG_pCO2": "58 mmHg",
+      "ABG_pO2": "52 mmHg",
+      "INR": "2.8"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Exacerbation of COPD",
+    "expected_icd11_codes": ["CA22", "CA22.0"],
+    "should_detect": [
+      "Controlled oxygen therapy (target SpO2 88-92% in COPD)",
+      "Systemic corticosteroids (prednisolone 40mg)",
+      "Short-acting bronchodilator nebulization",
+      "Antibiotic for purulent sputum (Anthonisen criteria met)",
+      "Warfarin interaction with antibiotics (macrolides/fluoroquinolones)",
+      "Consider NIV given hypercapnic respiratory failure",
+      "Check for concurrent heart failure decompensation"
+    ],
+    "red_flags": ["SpO2 < 88%", "Hypercapnia", "Unable to complete sentences", "Respiratory acidosis"]
+  }
+}

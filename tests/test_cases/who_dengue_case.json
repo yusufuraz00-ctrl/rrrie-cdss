@@ -1,0 +1,52 @@
+{
+  "case_id": "WHO-002",
+  "title": "Dengue Hemorrhagic Fever — Warning Signs Progression",
+  "icd11_expected": "1D20",
+  "patient_data": {
+    "age": 24,
+    "sex": "female",
+    "chief_complaint": "High fever for 4 days with worsening abdominal pain and bleeding gums",
+    "symptoms": [
+      "High fever (40.1°C) for 4 days — now defervescing",
+      "Severe retro-orbital pain",
+      "Severe myalgia and arthralgia (break-bone pain)",
+      "Abdominal pain — right upper quadrant tenderness",
+      "Nausea and persistent vomiting",
+      "Bleeding from gums",
+      "Petechial rash on extremities",
+      "Restlessness and lethargy alternating"
+    ],
+    "vitals": {
+      "temperature": 37.5,
+      "heart_rate": 120,
+      "respiratory_rate": 24,
+      "blood_pressure": "90/60",
+      "spo2": 95.0
+    },
+    "history": "Lives in tropical area (Southeast Asia), mosquito exposure. Neighbor hospitalized with dengue last week.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "platelets": "35,000/μL (critically low)",
+      "hematocrit": "48% (elevated — hemoconcentration)",
+      "WBC": "2,500/μL (leukopenia)",
+      "AST": "520 U/L (elevated)",
+      "ALT": "380 U/L (elevated)",
+      "albumin": "2.5 g/dL (low)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Dengue hemorrhagic fever",
+    "expected_icd11_codes": ["1D20", "1D2Z"],
+    "should_detect": [
+      "Critical phase transition: defervescence with warning signs",
+      "Hemoconcentration (rising hematocrit) indicates plasma leakage",
+      "Thrombocytopenia with bleeding — monitor for DIC",
+      "DO NOT give NSAIDs or aspirin — increases bleeding risk",
+      "IV fluid resuscitation — careful to avoid fluid overload",
+      "Monitor for dengue shock syndrome progression",
+      "Serial hematocrit and platelet monitoring every 4-6 hours"
+    ],
+    "red_flags": ["Hypotension", "Severe thrombocytopenia", "Plasma leakage", "Mucosal bleeding"]
+  }
+}

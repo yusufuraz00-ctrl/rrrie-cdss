@@ -1,0 +1,52 @@
+{
+  "case_id": "TC-011",
+  "title": "Acute Pancreatitis - Gallstone Etiology",
+  "icd11_expected": "DC31",
+  "patient_data": {
+    "age": 50,
+    "sex": "male",
+    "chief_complaint": "Severe epigastric pain radiating to the back for 6 hours, worse after eating",
+    "symptoms": [
+      "Severe constant epigastric pain radiating to the back",
+      "Pain worse when lying flat, slightly better leaning forward",
+      "Nausea with multiple episodes of vomiting",
+      "Abdominal distension and tenderness",
+      "Anorexia since onset"
+    ],
+    "vitals": {
+      "temperature": 38.2,
+      "heart_rate": 105,
+      "respiratory_rate": 22,
+      "blood_pressure": "130/80",
+      "spo2": 96.0
+    },
+    "history": "Known gallstones (asymptomatic, declined cholecystectomy), alcohol use 2-3 beers/week, hypertriglyceridemia, obesity BMI 34",
+    "medications": ["Fenofibrate 160mg daily", "Omeprazole 20mg daily"],
+    "allergies": ["Morphine (nausea)"],
+    "lab_results": {
+      "lipase": "1850 U/L (normal <60)",
+      "amylase": "920 U/L (normal <100)",
+      "ALT": "185 U/L (elevated)",
+      "total_bilirubin": "3.4 mg/dL",
+      "triglycerides": "280 mg/dL",
+      "WBC": "14.8 x10^9/L",
+      "CRP": "120 mg/L",
+      "creatinine": "1.0 mg/dL",
+      "RUQ_ultrasound": "Multiple gallstones, dilated common bile duct 10mm"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Gallstone Pancreatitis",
+    "expected_icd11_codes": ["DC31", "DC30"],
+    "should_detect": [
+      "NPO — aggressive IV fluid resuscitation (Ringer's lactate 250-500mL/hr initial)",
+      "Pain control — avoid morphine (allergy noted), use hydromorphone or ketorolac",
+      "Ranson criteria / BISAP score for severity stratification",
+      "MRCP or EUS to evaluate CBD stone",
+      "Urgent ERCP if cholangitis develops (elevated bilirubin + fever)",
+      "Plan cholecystectomy during same admission after resolution",
+      "Monitor for organ failure (Atlanta criteria)"
+    ],
+    "red_flags": ["Elevated bilirubin with dilated CBD (biliary obstruction)", "Fever suggesting cholangitis", "WBC > 12"]
+  }
+}

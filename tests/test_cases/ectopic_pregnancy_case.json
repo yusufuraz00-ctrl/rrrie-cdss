@@ -1,0 +1,52 @@
+{
+  "case_id": "TC-019",
+  "title": "Ectopic Pregnancy - Ruptured",
+  "icd11_expected": "JA01",
+  "patient_data": {
+    "age": 29,
+    "sex": "female",
+    "chief_complaint": "Sudden severe lower abdominal pain with dizziness and vaginal spotting",
+    "symptoms": [
+      "Sudden onset severe right lower abdominal pain radiating to shoulder (Kehr's sign)",
+      "Vaginal spotting (dark brown) for 3 days",
+      "Dizziness and near-syncope when standing",
+      "Amenorrhea — last menstrual period 7 weeks ago",
+      "Nausea without vomiting",
+      "Mild vaginal discharge"
+    ],
+    "vitals": {
+      "temperature": 36.8,
+      "heart_rate": 118,
+      "respiratory_rate": 22,
+      "blood_pressure": "88/55",
+      "spo2": 97.0
+    },
+    "history": "G2P1 (1 prior vaginal delivery). History of chlamydia infection age 22 (treated). Previous IUD (removed 6 months ago for conception attempt). Irregular cycles",
+    "medications": ["Prenatal vitamins", "Folic acid 5mg daily"],
+    "allergies": [],
+    "lab_results": {
+      "serum_hCG": "2400 mIU/mL",
+      "hemoglobin": "8.8 g/dL (dropped from baseline 12.5 — acute blood loss)",
+      "hematocrit": "26%",
+      "blood_type": "O negative (Rh- negative)",
+      "coagulation": "PT/INR normal",
+      "transvaginal_US": "Empty uterus, complex right adnexal mass 3.5cm, moderate free fluid in Morison pouch and pouch of Douglas"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Ruptured Ectopic Pregnancy with Hemoperitoneum",
+    "expected_icd11_codes": ["JA01", "JA01.0"],
+    "should_detect": [
+      "SURGICAL EMERGENCY — immediate gynecology/surgical consult for laparoscopy or laparotomy",
+      "Large-bore IV access x2 — aggressive fluid resuscitation with warmed crystalloid",
+      "Type and crossmatch — prepare 2-4 units packed RBCs (Hb 8.8 with ongoing bleeding)",
+      "O-negative blood if transfusion needed before crossmatch",
+      "Rh-negative patient — administer anti-D immunoglobulin (RhoGAM) 300mcg IM",
+      "Hemodynamic instability + free fluid = ruptured ectopic with active bleeding",
+      "hCG 2400 with empty uterus above discriminatory zone confirms ectopic",
+      "Risk factors: prior chlamydia (PID/tubal damage) + prior IUD use",
+      "Salpingectomy vs salpingotomy decision based on surgical findings"
+    ],
+    "red_flags": ["Hemodynamic instability (tachycardia + hypotension)", "Dropping hemoglobin (acute hemorrhage)", "Shoulder pain (diaphragmatic irritation from hemoperitoneum)", "Rh-negative — RhoGAM required"]
+  }
+}

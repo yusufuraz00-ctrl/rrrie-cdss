@@ -1,0 +1,46 @@
+{
+  "title": "Sudden Seizure Activity and Headache",
+  "patient_data": {
+    "age": 45,
+    "sex": "male",
+    "chief_complaint": "I had a seizure in the bathroom about 30 minutes ago and now have a severe headache.",
+    "symptoms": [
+      "Generalized tonic-clonic seizure",
+      "Post-ictal confusion",
+      "Severe headache",
+      "Nausea",
+      "Vomiting",
+      "Fatigue"
+    ],
+    "vitals": {
+      "temperature": 37.5,
+      "heart_rate": 95,
+      "respiratory_rate": 18,
+      "blood_pressure": "145/90",
+      "spo2": 96.0
+    },
+    "history": "No prior history of seizures or neurological issues. No known head trauma. No recent fevers or infections.",
+    "medications": [],
+    "allergies": [],
+    "patient_text": "Patient is a 45-year-old male brought to the ED by EMS after a witnessed generalized tonic-clonic seizure in the bathroom. The event lasted approximately 2 minutes. Patient is currently post-ictal, appearing confused and disoriented to time and place. Reports a severe, throbbing headache localized to the occipital region. Complains of nausea and vomiting twice. Patient is lethargic and difficult to arouse. No loss of consciousness prior to the seizure event. No known history of epilepsy, migraines, or head trauma. No recent fevers or upper respiratory symptoms. Patient is alert but confused upon arrival."
+  },
+  "expected_output": {
+    "primary_diagnosis": "Enostosis-related epilepsy",
+    "expected_icd11_codes": [
+      "7A00",
+      "7A01"
+    ],
+    "should_detect": [
+      "Perform CT head to rule out acute hemorrhage or mass effect",
+      "Obtain EEG if seizure activity persists",
+      "Consider MRI skull if CT is negative but suspicion remains high",
+      "Evaluate for intracranial pathology mimicking benign bone lesions"
+    ],
+    "red_flags": [
+      "New-onset seizure in a patient with no prior history",
+      "Severe headache preceding seizure",
+      "Post-ictal confusion and lethargy"
+    ]
+  },
+  "case_id": "PUBMED-34131493"
+}

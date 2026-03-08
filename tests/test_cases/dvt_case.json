@@ -1,0 +1,51 @@
+{
+  "case_id": "TC-017",
+  "title": "Deep Vein Thrombosis - Proximal Iliofemoral",
+  "icd11_expected": "BD40",
+  "patient_data": {
+    "age": 55,
+    "sex": "male",
+    "chief_complaint": "Progressive left leg swelling, pain, and redness for 3 days",
+    "symptoms": [
+      "Unilateral left leg swelling — 4cm circumference difference vs right",
+      "Dull aching pain in left calf and thigh, worse when standing",
+      "Warmth and erythema along the medial thigh",
+      "Pitting edema from ankle to mid-thigh",
+      "Positive Homans sign (calf pain on dorsiflexion)",
+      "No chest pain or dyspnea"
+    ],
+    "vitals": {
+      "temperature": 37.3,
+      "heart_rate": 82,
+      "respiratory_rate": 16,
+      "blood_pressure": "145/88",
+      "spo2": 97.0
+    },
+    "history": "Long-haul flight (12 hours) 5 days ago, prostate cancer (in remission, completed treatment 6 months ago), sedentary lifestyle, hypertension",
+    "medications": ["Amlodipine 5mg daily", "Finasteride 5mg daily"],
+    "allergies": ["Heparin (history of HIT — heparin-induced thrombocytopenia)"],
+    "lab_results": {
+      "D-dimer": "3100 ng/mL (elevated)",
+      "platelets": "210 x10^9/L (normal)",
+      "INR": "1.0",
+      "creatinine": "0.9 mg/dL",
+      "Wells_DVT_score": "4 (high probability)",
+      "compression_ultrasound": "Non-compressible left common femoral and popliteal veins — acute thrombus confirmed"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Proximal Deep Vein Thrombosis - Left Lower Extremity",
+    "expected_icd11_codes": ["BD40", "BD40.0"],
+    "should_detect": [
+      "CRITICAL: HIT history — DO NOT use any form of heparin (UFH or LMWH)",
+      "Anticoagulation: Direct oral anticoagulant (rivaroxaban 15mg BID x21d → 20mg daily)",
+      "Or argatroban if parenteral needed (HIT-safe)",
+      "Proximal DVT — high risk for PE, screen for PE symptoms",
+      "Cancer history: consider extended anticoagulation (3-6 months minimum)",
+      "Provoked by travel + cancer → unprovoked component possible → consider indefinite AC",
+      "Compression stockings for post-thrombotic syndrome prevention",
+      "IVC filter only if anticoagulation contraindicated"
+    ],
+    "red_flags": ["Proximal DVT (iliofemoral — high PE risk)", "HIT history (heparin absolutely contraindicated)", "Cancer-associated VTE", "Phlegmasia risk with extensive clot"]
+  }
+}

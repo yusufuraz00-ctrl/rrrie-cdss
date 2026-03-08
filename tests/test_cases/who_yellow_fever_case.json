@@ -1,0 +1,62 @@
+{
+  "case_id": "WHO-008",
+  "title": "Yellow Fever — Hemorrhagic Phase with Jaundice",
+  "icd11_expected": "1D47",
+  "patient_data": {
+    "age": 34,
+    "sex": "male",
+    "chief_complaint": "High fever, jaundice, vomiting blood — returned from West Africa 5 days ago",
+    "symptoms": [
+      "High-grade fever for 4 days (up to 40.5°C)",
+      "Initial remission on day 3, then sudden deterioration",
+      "Jaundice — deep yellow sclera and skin",
+      "Hematemesis — vomiting dark coffee-ground material",
+      "Melena — black tarry stools",
+      "Epigastric pain and tenderness",
+      "Bleeding from gums and venipuncture sites",
+      "Oliguria — urine output < 200 ml in last 12 hours",
+      "Severe headache and back pain (Faget sign — bradycardia with fever)"
+    ],
+    "vitals": {
+      "temperature": 40.2,
+      "heart_rate": 58,
+      "respiratory_rate": 28,
+      "blood_pressure": "85/50",
+      "spo2": 91.0
+    },
+    "history": "Unvaccinated traveler who spent 3 weeks in rural Guinea for mining work. No yellow fever vaccine or malaria prophylaxis. Bitten by mosquitoes frequently. No previous travel to tropical areas.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "total_bilirubin": 12.4,
+      "direct_bilirubin": 9.8,
+      "ALT": 3500,
+      "AST": 4200,
+      "INR": 3.8,
+      "platelet_count": 42000,
+      "creatinine": 4.2,
+      "BUN": 68,
+      "WBC": 2800,
+      "hemoglobin": 8.1,
+      "yellow_fever_IgM": "positive",
+      "yellow_fever_PCR": "positive",
+      "malaria_smear": "negative"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Yellow fever — toxic/hemorrhagic phase",
+    "expected_icd11_codes": ["1D47"],
+    "should_detect": [
+      "Yellow fever with hemorrhagic manifestations — WHO-reportable emergency",
+      "Faget sign: bradycardia (HR 58) with high fever is pathognomonic",
+      "Biphasic illness: infection phase → brief remission → intoxication phase",
+      "Hepatorenal syndrome: massive transaminitis + renal failure",
+      "DIC — thrombocytopenia + prolonged INR + mucosal bleeding",
+      "Treatment is supportive — no specific antiviral. ICU admission mandatory",
+      "Strict mosquito isolation to prevent urban transmission cycle",
+      "International Health Regulations (IHR) notifiable disease",
+      "Vaccination of contacts and outbreak investigation needed"
+    ],
+    "red_flags": ["Active hemorrhage", "Renal failure (Cr 4.2)", "DIC", "Hypotension", "SpO2 < 92%"]
+  }
+}

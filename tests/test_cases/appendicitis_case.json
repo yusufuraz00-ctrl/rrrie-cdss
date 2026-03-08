@@ -1,0 +1,44 @@
+{
+  "case_id": "TC-004",
+  "title": "Acute Appendicitis - Pediatric Presentation",
+  "icd11_expected": "DB10",
+  "patient_data": {
+    "age": 14,
+    "sex": "male",
+    "chief_complaint": "Right lower abdominal pain for 18 hours, worsening",
+    "symptoms": [
+      "Periumbilical pain migrating to right lower quadrant",
+      "Nausea with one episode of vomiting",
+      "Loss of appetite (anorexia)",
+      "Low-grade fever",
+      "Pain worsens with movement and coughing"
+    ],
+    "vitals": {
+      "temperature": 38.2,
+      "heart_rate": 95,
+      "respiratory_rate": 18,
+      "blood_pressure": "110/70",
+      "spo2": 99.0
+    },
+    "history": "No significant past medical history",
+    "medications": [],
+    "allergies": ["Codeine (nausea)"],
+    "lab_results": {
+      "WBC": "14.2 x10^9/L",
+      "CRP": "35 mg/L",
+      "neutrophils": "82%"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Appendicitis",
+    "expected_icd11_codes": ["DB10", "DB10.0"],
+    "should_detect": [
+      "Alvarado score calculation",
+      "Surgical consultation for appendectomy",
+      "NPO status",
+      "Pain management avoiding codeine (allergy)",
+      "CT abdomen/pelvis or ultrasound for confirmation"
+    ],
+    "red_flags": ["Rebound tenderness", "Peritoneal signs"]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "case_id": "WHO-004",
+  "title": "Malaria — Severe Plasmodium falciparum with Cerebral Involvement",
+  "icd11_expected": "1F40",
+  "patient_data": {
+    "age": 29,
+    "sex": "male",
+    "chief_complaint": "High cyclical fever for 5 days with confusion and dark urine",
+    "symptoms": [
+      "High fever (40.2°C) recurring every 36-48 hours",
+      "Rigors and chills alternating with profuse sweating",
+      "Severe headache",
+      "Confusion and drowsiness (Glasgow Coma Scale 11)",
+      "Dark cola-colored urine (hemoglobinuria)",
+      "Jaundice — yellow sclera",
+      "Nausea and vomiting"
+    ],
+    "vitals": {
+      "temperature": 40.2,
+      "heart_rate": 128,
+      "respiratory_rate": 26,
+      "blood_pressure": "95/55",
+      "spo2": 93.0
+    },
+    "history": "Returned from Sub-Saharan Africa (Nigeria) 10 days ago. Did NOT take malaria prophylaxis. No bed net used.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "hemoglobin": "7.2 g/dL (severe anemia)",
+      "platelets": "45,000/μL (low)",
+      "parasitemia": "8% (high — exceeds 5% threshold for severe malaria)",
+      "bilirubin": "4.8 mg/dL (elevated)",
+      "creatinine": "2.5 mg/dL (elevated — AKI)",
+      "glucose": "52 mg/dL (hypoglycemia)",
+      "lactate": "5.2 mmol/L (elevated)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Severe falciparum malaria with cerebral involvement",
+    "expected_icd11_codes": ["1F40", "1F40.0"],
+    "should_detect": [
+      "SEVERE malaria criteria: parasitemia >5%, cerebral involvement (GCS<15), severe anemia, AKI, hypoglycemia",
+      "IV artesunate is FIRST LINE for severe malaria — NOT oral therapy",
+      "Urgent thick and thin blood smear for species confirmation",
+      "Rapid diagnostic test (RDT) for P. falciparum",
+      "Monitor and correct hypoglycemia (quinine can worsen it)",
+      "Possible exchange transfusion if parasitemia >10%",
+      "Travel history without prophylaxis — highest risk"
+    ],
+    "red_flags": ["GCS<15 (cerebral malaria)", "Hypoglycemia", "Severe anemia", "AKI", "High parasitemia"]
+  }
+}

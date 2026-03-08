@@ -1,0 +1,56 @@
+{
+  "case_id": "TC-020",
+  "title": "Bacterial Meningitis - Pediatric",
+  "icd11_expected": "1D01",
+  "patient_data": {
+    "age": 8,
+    "sex": "male",
+    "chief_complaint": "High fever, severe headache, neck stiffness, and petechial rash for 12 hours",
+    "symptoms": [
+      "High fever (39.8°C) with rigors since last night",
+      "Severe diffuse headache — worst headache of his life",
+      "Neck stiffness — refuses to flex neck (meningism)",
+      "Photophobia — wants lights off, covers eyes",
+      "Vomiting (3 episodes, projectile)",
+      "Progressive lethargy — drowsy but rousable (GCS 13)",
+      "Petechial rash noted on trunk and lower extremities — rapidly spreading",
+      "Irritability when picked up"
+    ],
+    "vitals": {
+      "temperature": 39.8,
+      "heart_rate": 145,
+      "respiratory_rate": 28,
+      "blood_pressure": "90/55",
+      "spo2": 96.0
+    },
+    "history": "Previously healthy. Vaccinations up to date (but missed MenB booster). Had a cold 5 days ago. Attends primary school. No recent travel. No sick contacts with meningitis",
+    "medications": [],
+    "allergies": ["Cephalosporins (mild rash at age 3 — unclear if true allergy)"],
+    "lab_results": {
+      "WBC": "22.5 x10^9/L with 90% neutrophils",
+      "CRP": "210 mg/L (severely elevated)",
+      "procalcitonin": "15 ng/mL",
+      "blood_glucose": "65 mg/dL (borderline low)",
+      "platelets": "95 x10^9/L (low — possible DIC)",
+      "coagulation": "PT 16s (prolonged), fibrinogen 150 mg/dL (low)",
+      "blood_cultures": "Pending — 2 sets drawn",
+      "CSF": "Pending LP (to be performed after CT if no raised ICP signs)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Bacterial Meningitis with Meningococcemia",
+    "expected_icd11_codes": ["1D01", "1C1C"],
+    "should_detect": [
+      "Do NOT delay antibiotics for LP — give empiric antibiotics IMMEDIATELY",
+      "Empiric: Ceftriaxone 100mg/kg/day (despite mild cephalosporin 'allergy' — rash is not anaphylaxis, benefit >> risk) + Vancomycin",
+      "If true cephalosporin anaphylaxis: chloramphenicol or meropenem alternative",
+      "Dexamethasone 0.15mg/kg IV before or with first antibiotic dose (reduces neurological sequelae)",
+      "Petechial rash + meningism = meningococcal disease until proven otherwise",
+      "DIC parameters abnormal — monitor coagulation, prepare FFP/cryoprecipitate",
+      "Contact tracing and prophylaxis: rifampicin or ciprofloxacin for close contacts",
+      "Notifiable disease — report to public health authorities",
+      "Neurological monitoring: GCS q1h, check for raised ICP signs"
+    ],
+    "red_flags": ["Petechial/purpuric rash (meningococcal sepsis)", "GCS < 15 in child with fever", "DIC parameters abnormal", "Hypotension for age", "Rapidly evolving rash"]
+  }
+}

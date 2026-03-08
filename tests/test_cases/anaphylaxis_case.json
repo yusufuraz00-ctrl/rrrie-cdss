@@ -1,0 +1,49 @@
+{
+  "case_id": "TC-018",
+  "title": "Anaphylaxis - Food Allergen (Peanut)",
+  "icd11_expected": "4A84",
+  "patient_data": {
+    "age": 30,
+    "sex": "female",
+    "chief_complaint": "Widespread hives, throat tightness, and difficulty breathing within minutes of eating at a restaurant",
+    "symptoms": [
+      "Generalized urticaria (hives) over trunk and extremities within 5 minutes",
+      "Angioedema — lip and tongue swelling",
+      "Throat tightness with hoarse voice (laryngeal edema)",
+      "Inspiratory stridor audible",
+      "Abdominal cramping with nausea",
+      "Dizziness and feeling faint",
+      "Ate a dish at a restaurant likely cross-contaminated with peanuts"
+    ],
+    "vitals": {
+      "temperature": 37.0,
+      "heart_rate": 125,
+      "respiratory_rate": 28,
+      "blood_pressure": "80/45",
+      "spo2": 90.0
+    },
+    "history": "Known severe peanut allergy (previous episode at age 12 — ED visit), carries EpiPen but left it at home today, mild asthma, allergic rhinitis",
+    "medications": ["Montelukast 10mg daily", "Cetirizine 10mg PRN"],
+    "allergies": ["Peanut (SEVERE — anaphylaxis)", "Tree nuts (mild oral allergy syndrome)"],
+    "lab_results": {
+      "tryptase": "Not yet available (send urgently — draw within 1-2 hours)",
+      "ABG": "pH 7.38, pCO2 36, pO2 68"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Anaphylaxis — Peanut Allergen Exposure",
+    "expected_icd11_codes": ["4A84", "4A84.0"],
+    "should_detect": [
+      "EPINEPHRINE IM 0.5mg (0.5mL of 1:1000) anterolateral thigh — STAT, repeat q5-15min if no improvement",
+      "Large-bore IV access x2 — aggressive fluid bolus NS 1-2L",
+      "High-flow oxygen — prepare for emergency intubation given stridor",
+      "Position: supine with legs elevated (NOT upright — risk of empty ventricle syndrome)",
+      "Adjuncts: IV diphenhydramine 50mg + IV ranitidine 50mg + IV methylprednisolone 125mg",
+      "Albuterol nebulizer for bronchospasm component",
+      "Monitor for biphasic reaction — observe minimum 6-8 hours (longer given severity)",
+      "Serum tryptase within 1-2 hours (confirms mast cell degranulation)",
+      "Prescribe EpiPen 2-pack and allergy referral on discharge"
+    ],
+    "red_flags": ["Stridor (airway compromise)", "Hypotension (distributive shock)", "SpO2 < 92%", "Tachycardia > 120", "Known severe allergy with prior anaphylaxis"]
+  }
+}

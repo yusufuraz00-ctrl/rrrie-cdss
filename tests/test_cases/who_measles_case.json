@@ -1,0 +1,50 @@
+{
+  "case_id": "WHO-005",
+  "title": "Measles — Complicated with Pneumonia in Unvaccinated Child",
+  "icd11_expected": "1F03",
+  "patient_data": {
+    "age": 4,
+    "sex": "male",
+    "chief_complaint": "High fever for 5 days with rash spreading from face to body, cough worsening",
+    "symptoms": [
+      "High fever (39.8°C) for 5 days",
+      "Maculopapular rash — started behind ears, spread to face then trunk and extremities",
+      "Koplik spots on buccal mucosa (white spots on red base)",
+      "Conjunctivitis — bilateral red watery eyes",
+      "Coryza — runny nose",
+      "Persistent cough — now productive",
+      "Photophobia",
+      "Decreased oral intake and irritability"
+    ],
+    "vitals": {
+      "temperature": 39.8,
+      "heart_rate": 140,
+      "respiratory_rate": 36,
+      "blood_pressure": "85/55",
+      "spo2": 90.0
+    },
+    "history": "Unvaccinated (parents refused vaccination). Recent measles outbreak in school. Malnourished (low weight-for-age z-score -2.5).",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "WBC": "3,200/μL (leukopenia)",
+      "CXR": "Bilateral interstitial infiltrates consistent with measles pneumonia",
+      "vitamin_A": "low (deficiency suspected)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Measles complicated by pneumonia",
+    "expected_icd11_codes": ["1F03", "1F03.1"],
+    "should_detect": [
+      "Koplik spots — pathognomonic for measles (appear before rash)",
+      "Classic triad: cough + conjunctivitis + coryza (the 3 Cs)",
+      "Measles pneumonia — leading cause of measles death",
+      "Vitamin A supplementation is WHO-recommended treatment",
+      "SpO2 90% — supplemental oxygen needed",
+      "Unvaccinated child in outbreak setting — definitive diagnosis",
+      "Airborne isolation required",
+      "Contact tracing and post-exposure prophylaxis for contacts"
+    ],
+    "red_flags": ["SpO2 < 92%", "Tachypnea for age", "Pneumonia complication", "Malnutrition"]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "case_id": "TC-003",
+  "title": "Diabetic Ketoacidosis - Emergency Presentation",
+  "icd11_expected": "5A10",
+  "patient_data": {
+    "age": 28,
+    "sex": "female",
+    "chief_complaint": "Nausea, vomiting, abdominal pain, and confusion for 12 hours",
+    "symptoms": [
+      "Nausea and vomiting since morning",
+      "Diffuse abdominal pain",
+      "Confusion and lethargy",
+      "Excessive thirst (polydipsia)",
+      "Frequent urination (polyuria)",
+      "Fruity-smelling breath"
+    ],
+    "vitals": {
+      "temperature": 37.5,
+      "heart_rate": 120,
+      "respiratory_rate": 28,
+      "blood_pressure": "100/60",
+      "spo2": 97.0
+    },
+    "history": "Type 1 Diabetes Mellitus diagnosed at age 12, hypothyroidism",
+    "medications": ["Insulin glargine 20U daily", "Insulin lispro sliding scale", "Levothyroxine 75mcg daily"],
+    "allergies": [],
+    "lab_results": {
+      "blood_glucose": "450 mg/dL",
+      "pH": "7.18",
+      "bicarbonate": "8 mEq/L",
+      "anion_gap": "24",
+      "ketones_urine": "large"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Diabetic Ketoacidosis",
+    "expected_icd11_codes": ["5A10", "5A11"],
+    "should_detect": [
+      "IV normal saline bolus",
+      "Insulin infusion protocol",
+      "Electrolyte monitoring (potassium critical)",
+      "Identify precipitating cause (infection, missed insulin)",
+      "ICU-level monitoring"
+    ],
+    "red_flags": ["Altered mental status", "Kussmaul respiration", "Tachycardia", "Hypotension"]
+  }
+}

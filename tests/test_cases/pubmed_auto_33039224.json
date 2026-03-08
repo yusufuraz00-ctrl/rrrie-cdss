@@ -1,0 +1,45 @@
+{
+  "title": "Sudden numbness in the hand and face",
+  "patient_data": {
+    "age": 62,
+    "sex": "male",
+    "chief_complaint": "I woke up this morning and my right hand feels completely dead, like I dropped it. At the same time, my face feels numb on the left side.",
+    "symptoms": [
+      "Numbness in the right hand and fingers",
+      "Numbness in the left side of the face",
+      "Sensory disturbance in the mouth area",
+      "Weakness in the right arm",
+      "Onset occurred suddenly upon waking"
+    ],
+    "vitals": {
+      "temperature": 37.2,
+      "heart_rate": 88,
+      "respiratory_rate": 18,
+      "blood_pressure": "145/92",
+      "spo2": 97.0
+    },
+    "history": "No prior history of stroke or seizures. Patient is a smoker. No known diabetes or hypertension history, though BP is elevated today.",
+    "medications": [],
+    "allergies": [],
+    "patient_text": "Patient is a 62-year-old male presenting to the ED with acute onset of sensory loss. He reports that upon waking this morning, he noticed complete numbness in his right hand and fingers, extending up the arm. Simultaneously, he reports numbness on the left side of his face and difficulty feeling his lips and tongue. He denies any pain, weakness in the legs, or speech difficulties. He states the symptoms started suddenly while he was sleeping. He is concerned about a stroke but notes the unusual combination of hand and face symptoms. He has no history of prior neurological events."
+  },
+  "expected_output": {
+    "primary_diagnosis": "Cheiro-Oral Syndrome",
+    "expected_icd11_codes": [
+      "720.0",
+      "G43.9"
+    ],
+    "should_detect": [
+      "Perform MRI of the brain to rule out thalamic stroke",
+      "Evaluate for structural lesions in the contralateral thalamus",
+      "Consider ischemic or hemorrhagic etiology",
+      "Rule out tumors, aneurysms, or infections"
+    ],
+    "red_flags": [
+      "Acute onset neurological deficit",
+      "Unilateral sensory loss",
+      "Potential stroke mimic requiring urgent imaging"
+    ]
+  },
+  "case_id": "PUBMED-33039224"
+}

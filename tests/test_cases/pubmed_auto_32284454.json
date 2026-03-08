@@ -1,0 +1,46 @@
+{
+  "title": "Altered Mental Status and Respiratory Distress",
+  "patient_data": {
+    "age": 45,
+    "sex": "male",
+    "chief_complaint": "Patient is confused and lethargic, unable to follow commands, with difficulty breathing.",
+    "symptoms": [
+      "Confusion",
+      "Lethargy",
+      "Disorientation",
+      "Shortness of breath",
+      "Hypoxia",
+      "Altered level of consciousness"
+    ],
+    "vitals": {
+      "temperature": 37.5,
+      "heart_rate": 110,
+      "respiratory_rate": 24,
+      "blood_pressure": "145/90",
+      "spo2": 88.0
+    },
+    "history": "Patient presents to the ED after being found unresponsive by family members. No known history of seizures or stroke. Patient is a smoker with no known chronic lung disease.",
+    "medications": [],
+    "allergies": [],
+    "patient_text": "Patient is a 45-year-old male brought to the Emergency Department by EMS. He is currently unresponsive and unable to follow commands. He appears lethargic and confused, with eyes open but not tracking properly. Family reports he was found sitting in his living room, slumped over, with difficulty breathing. He has a history of smoking but no known chronic illnesses. On arrival, he is hypoxic with tachycardia and hypertension. Immediate stabilization is required."
+  },
+  "expected_output": {
+    "primary_diagnosis": "Carbon Monoxide Poisoning",
+    "expected_icd11_codes": [
+      "8A50",
+      "7A00"
+    ],
+    "should_detect": [
+      "Check car exhaust fumes in the home",
+      "Order carboxyhemoglobin level",
+      "Administer 100% oxygen",
+      "Consider hyperbaric oxygen therapy"
+    ],
+    "red_flags": [
+      "Hypoxia with normal pulse oximetry (if CO poisoning suspected)",
+      "Altered mental status",
+      "History of enclosed space exposure"
+    ]
+  },
+  "case_id": "PUBMED-32284454"
+}

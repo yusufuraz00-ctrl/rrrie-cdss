@@ -1,0 +1,52 @@
+{
+  "case_id": "TC-012",
+  "title": "Sepsis - Urinary Source in Elderly",
+  "icd11_expected": "1G40",
+  "patient_data": {
+    "age": 66,
+    "sex": "female",
+    "chief_complaint": "Confusion, fever, and decreased urine output for 24 hours",
+    "symptoms": [
+      "Acute confusion and agitation (baseline alert and oriented)",
+      "Fever with rigors since yesterday",
+      "Decreased urine output — dark and foul-smelling",
+      "Generalized weakness and unable to stand",
+      "Mild suprapubic discomfort",
+      "Poor oral intake for 2 days"
+    ],
+    "vitals": {
+      "temperature": 39.2,
+      "heart_rate": 112,
+      "respiratory_rate": 24,
+      "blood_pressure": "85/50",
+      "spo2": 93.0
+    },
+    "history": "Type 2 DM (HbA1c 8.2%), recurrent UTIs (3 in past year), benign prostatic disease, chronic kidney disease stage 2",
+    "medications": ["Metformin 1000mg BID", "Gliclazide 60mg daily", "Tamsulosin 0.4mg daily"],
+    "allergies": ["Trimethoprim-sulfamethoxazole (rash)"],
+    "lab_results": {
+      "WBC": "18.5 x10^9/L with left shift",
+      "lactate": "4.2 mmol/L (elevated >2)",
+      "creatinine": "2.1 mg/dL (baseline 1.2)",
+      "blood_glucose": "310 mg/dL",
+      "urinalysis": "Nitrite+, Leukocyte esterase 3+, WBC >100/hpf, bacteria many",
+      "blood_cultures": "Pending — 2 sets drawn",
+      "procalcitonin": "8.5 ng/mL (elevated)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Sepsis secondary to complicated UTI (urosepsis)",
+    "expected_icd11_codes": ["1G40", "GC08"],
+    "should_detect": [
+      "Hour-1 Sepsis Bundle: blood cultures → antibiotics → fluids → lactate → vasopressors if needed",
+      "IV fluid resuscitation 30mL/kg crystalloid within 3 hours",
+      "Empiric antibiotics: ceftriaxone or piperacillin-tazobactam (avoid TMP-SMX — allergy)",
+      "Hold metformin (acute kidney injury risk, elevated lactate)",
+      "Norepinephrine if MAP < 65 after fluid resuscitation",
+      "Recheck lactate at 4 hours — target clearance",
+      "Urinary catheter for output monitoring",
+      "qSOFA ≥ 2 (altered mentation + RR ≥ 22 + SBP ≤ 100)"
+    ],
+    "red_flags": ["Hypotension (MAP < 65)", "Lactate > 4 mmol/L", "Altered mental status", "Acute kidney injury", "qSOFA ≥ 2"]
+  }
+}

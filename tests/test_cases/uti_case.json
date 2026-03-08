@@ -1,0 +1,49 @@
+{
+  "case_id": "TC-006",
+  "title": "Urinary Tract Infection - Complicated (Elderly Female)",
+  "icd11_expected": "GC08",
+  "patient_data": {
+    "age": 78,
+    "sex": "female",
+    "chief_complaint": "Burning urination, fever, and confusion for 2 days",
+    "symptoms": [
+      "Dysuria (painful urination)",
+      "Urinary frequency and urgency",
+      "Suprapubic pain",
+      "Fever (38.5°C)",
+      "New-onset confusion (altered mental status)",
+      "Malodorous cloudy urine"
+    ],
+    "vitals": {
+      "temperature": 38.5,
+      "heart_rate": 98,
+      "respiratory_rate": 20,
+      "blood_pressure": "105/65",
+      "spo2": 96.0
+    },
+    "history": "Recurrent UTIs (3 in past year), Type 2 Diabetes, Chronic kidney disease stage 3 (eGFR 42)",
+    "medications": ["Metformin 500mg BID", "Amlodipine 5mg daily", "Empagliflozin 10mg daily"],
+    "allergies": ["Trimethoprim (rash)", "Sulfonamides"],
+    "lab_results": {
+      "WBC": "16.8 x10^9/L",
+      "creatinine": "1.8 mg/dL",
+      "eGFR": "42 mL/min",
+      "urinalysis_WBC": ">50/HPF",
+      "urinalysis_nitrite": "positive",
+      "urinalysis_leukocyte_esterase": "3+"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Complicated Urinary Tract Infection",
+    "expected_icd11_codes": ["GC08", "GC00"],
+    "should_detect": [
+      "Trimethoprim + sulfonamide allergy — avoid TMP-SMX",
+      "CKD stage 3 → renal dose adjustment needed",
+      "Empagliflozin increases UTI risk — consider holding",
+      "Altered mental status in elderly with UTI → rule out urosepsis",
+      "Blood cultures before antibiotics",
+      "Nitrofurantoin contraindicated in eGFR <30 (borderline here)"
+    ],
+    "red_flags": ["Altered mental status", "Fever with UTI in elderly"]
+  }
+}

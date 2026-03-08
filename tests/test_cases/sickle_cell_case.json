@@ -1,0 +1,57 @@
+{
+  "case_id": "TC-023",
+  "title": "Sickle Cell Crisis - Vaso-Occlusive with Acute Chest Syndrome Risk",
+  "icd11_expected": "3A51.0",
+  "patient_data": {
+    "age": 22,
+    "sex": "male",
+    "chief_complaint": "Severe bilateral leg and back pain for 2 days, now with fever and mild chest pain",
+    "symptoms": [
+      "Severe bilateral lower extremity pain (bones/joints) — 9/10 on pain scale",
+      "Lower back pain",
+      "Pain unresponsive to oral oxycodone at home",
+      "Fever developed 12 hours ago",
+      "New onset mild right-sided chest pain with shallow breathing",
+      "Mild cough — non-productive",
+      "Generalized fatigue and malaise",
+      "Jaundice (scleral icterus noted)"
+    ],
+    "vitals": {
+      "temperature": 38.8,
+      "heart_rate": 110,
+      "respiratory_rate": 24,
+      "blood_pressure": "115/70",
+      "spo2": 92.0
+    },
+    "history": "Sickle cell disease (HbSS) diagnosed at birth. 3-4 VOC crises per year. Last crisis 2 months ago. Previous acute chest syndrome episode (age 18). Avascular necrosis bilateral hips. On hydroxyurea — admits missing doses recently. No surgical history",
+    "medications": ["Hydroxyurea 1000mg daily (admits poor compliance)", "Folic acid 1mg daily", "Oxycodone 10mg PRN (home supply exhausted)"],
+    "allergies": ["Meperidine (seizures — contraindicated in SCD)"],
+    "lab_results": {
+      "hemoglobin": "6.2 g/dL (baseline 8.0 — acute drop)",
+      "reticulocyte_count": "12% (elevated — hemolytic response)",
+      "WBC": "15.5 x10^9/L",
+      "total_bilirubin": "5.8 mg/dL (indirect predominant)",
+      "LDH": "650 U/L (hemolysis marker)",
+      "CRP": "85 mg/L",
+      "CXR": "New infiltrate right lower lobe (developing acute chest syndrome)",
+      "type_and_screen": "Completed — multiple alloantibodies (anti-C, anti-E)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Sickle Cell Vaso-Occlusive Crisis with Evolving Acute Chest Syndrome",
+    "expected_icd11_codes": ["3A51.0", "3A51"],
+    "should_detect": [
+      "Aggressive pain management: IV morphine PCA or hydromorphone (NEVER meperidine — allergy/seizure risk in SCD)",
+      "Exchange transfusion consideration (Hb 6.2 + acute chest syndrome developing)",
+      "Phenotype-matched blood (anti-C, anti-E antibodies — extended crossmatch needed)",
+      "Simple transfusion if exchange not immediately available (target Hb 10, HbS <30%)",
+      "Supplemental oxygen to maintain SpO2 >95%",
+      "Incentive spirometry q2h (prevents atelectasis → ACS progression)",
+      "Empiric antibiotics for acute chest syndrome: ceftriaxone + azithromycin",
+      "IV fluid hydration (cautious — avoid overhydration which worsens ACS)",
+      "Reinforce hydroxyurea compliance (disease-modifying, reduces VOC frequency)",
+      "Hematology consult for long-term management: consider crizanlizumab or L-glutamine"
+    ],
+    "red_flags": ["Acute chest syndrome evolving (new CXR infiltrate + chest pain + fever)", "SpO2 < 95% in SCD", "Hemoglobin drop from baseline (6.2 vs 8.0)", "Known alloantibodies complicate transfusion", "Meperidine allergy (seizure risk)"]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "case_id": "TC-013",
+  "title": "Type 1 DM New Diagnosis with DKA - Adolescent",
+  "icd11_expected": "5A10",
+  "patient_data": {
+    "age": 19,
+    "sex": "male",
+    "chief_complaint": "Excessive thirst, frequent urination, weight loss, and progressive lethargy over 3 weeks",
+    "symptoms": [
+      "Polyuria — waking 4-5 times at night to urinate",
+      "Polydipsia — drinking 5-6 liters of water daily",
+      "Unintentional weight loss of 8 kg over 3 weeks",
+      "Progressive fatigue and difficulty concentrating in school",
+      "Blurred vision for 1 week",
+      "Fruity-smelling breath (noted by roommate)",
+      "Abdominal pain and nausea since yesterday"
+    ],
+    "vitals": {
+      "temperature": 36.5,
+      "heart_rate": 115,
+      "respiratory_rate": 30,
+      "blood_pressure": "105/65",
+      "spo2": 98.0
+    },
+    "history": "Previously healthy university student, no significant PMH, family history: mother with Hashimoto's thyroiditis",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "blood_glucose": "520 mg/dL",
+      "pH": "7.15",
+      "bicarbonate": "6 mEq/L",
+      "anion_gap": "28",
+      "beta_hydroxybutyrate": "8.2 mmol/L (severely elevated)",
+      "HbA1c": "13.5%",
+      "potassium": "5.8 mEq/L (high — but will drop with insulin)",
+      "sodium": "128 mEq/L (pseudohyponatremia)",
+      "GAD65_antibodies": "Positive (confirming autoimmune T1DM)",
+      "C-peptide": "0.1 ng/mL (very low — no endogenous insulin)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "New-onset Type 1 Diabetes Mellitus with Diabetic Ketoacidosis",
+    "expected_icd11_codes": ["5A10", "5A10.1"],
+    "should_detect": [
+      "DKA protocol: IV normal saline bolus then 250-500 mL/hr",
+      "Regular insulin infusion 0.1 U/kg/hr (NOT bolus in new diagnosis)",
+      "Potassium monitoring q2h — DO NOT give insulin if K+ < 3.3",
+      "Current K+ 5.8 will drop rapidly with insulin — monitor closely",
+      "Correct sodium for glucose: corrected Na ≈ 134",
+      "Bridge to subcutaneous insulin when anion gap closes and patient eating",
+      "Diabetes education: carb counting, insulin therapy, DKA prevention",
+      "Autoimmune panel: GAD65+ confirms Type 1 (not Type 2)",
+      "Screen for other autoimmune conditions (thyroid — maternal history)"
+    ],
+    "red_flags": ["Severe DKA (pH < 7.1)", "Kussmaul respirations (RR 30)", "Hyperkalemia (risk of arrhythmia)", "Cerebral edema risk in young patients"]
+  }
+}

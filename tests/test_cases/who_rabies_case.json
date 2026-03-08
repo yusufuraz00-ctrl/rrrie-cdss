@@ -1,0 +1,59 @@
+{
+  "case_id": "WHO-010",
+  "title": "Rabies — Clinical Rabies with Hydrophobia Post Dog Bite",
+  "icd11_expected": "1C82",
+  "patient_data": {
+    "age": 12,
+    "sex": "male",
+    "chief_complaint": "Agitation, hydrophobia, aerophobia 4 weeks after stray dog bite",
+    "symptoms": [
+      "Extreme agitation and restlessness — fluctuating with periods of lucidity",
+      "Hydrophobia — intense spasms of throat/diaphragm when attempting to drink",
+      "Aerophobia — spasms triggered by air blown on face",
+      "Pain and paresthesia at bite wound site (right forearm)",
+      "Hypersalivation — drooling and inability to swallow",
+      "Insomnia for 3 nights",
+      "Hallucinations — visual and auditory",
+      "Fever — intermittent, up to 39.8°C",
+      "Mydriasis — dilated pupils bilaterally",
+      "Piloerection near bite wound"
+    ],
+    "vitals": {
+      "temperature": 39.8,
+      "heart_rate": 130,
+      "respiratory_rate": 30,
+      "blood_pressure": "150/95",
+      "spo2": 94.0
+    },
+    "history": "12-year-old boy bitten by stray dog on right forearm 4 weeks ago in rural village. Wound was washed with water only. No post-exposure prophylaxis (PEP) was given. No prior rabies vaccination. Dog disappeared after biting and was not found. Symptoms started 3 days ago with tingling at bite site.",
+    "medications": [],
+    "allergies": [],
+    "lab_results": {
+      "rabies_DFA": "Pending (skin biopsy taken from nape of neck)",
+      "rabies_PCR_saliva": "Positive for rabies virus RNA",
+      "CSF_analysis": {
+        "protein": 65,
+        "glucose": 60,
+        "WBC": 15,
+        "cell_type": "lymphocytic"
+      },
+      "MRI_brain": "Ill-defined T2 hyperintensity in brainstem and hippocampal regions"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Clinical rabies — encephalitic (furious) form",
+    "expected_icd11_codes": ["1C82"],
+    "should_detect": [
+      "Clinical rabies — encephalitic (furious) form, virtually 100% fatal once symptomatic",
+      "Hydrophobia + aerophobia are pathognomonic for rabies encephalitis",
+      "WHO Category III exposure (bite) — required immediate PEP which was missed",
+      "Post-exposure prophylaxis failure — not administered after dog bite",
+      "Milwaukee Protocol may be considered but outcomes remain extremely poor",
+      "Supportive/palliative ICU care — comfort measures discussion",
+      "WHO-recommended PEP: wound washing + rabies immunoglobulin + vaccine series",
+      "Public health: dog population management and mass vaccination campaigns",
+      "This case highlights need for community education in endemic areas"
+    ],
+    "red_flags": ["Hydrophobia — pathognomonic for rabies", "Nearly 100% fatality once symptomatic", "Autonomic instability (hypertension + tachycardia)", "No PEP given after bite"]
+  }
+}

@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Models (too large for git)
+models/*.gguf
+models/*.bin
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Data caches
+config/drug_cache.json
+data/*.db
+data/*.sqlite
+
+# Test outputs
+tests/e2e_results.json
+tests/__pycache__/
+
+# llama-server (binaries + CUDA libs — too large for git)
+llama-server/
+
+# Env files (secrets)
+.env
+
+# Log files
+*.log
+
+# Database files
+*.db
+*.sqlite

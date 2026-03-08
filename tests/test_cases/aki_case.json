@@ -1,0 +1,53 @@
+{
+  "case_id": "TC-015",
+  "title": "Acute Kidney Injury - Drug-Induced (NSAIDs + ACEi)",
+  "icd11_expected": "GB60",
+  "patient_data": {
+    "age": 70,
+    "sex": "male",
+    "chief_complaint": "Decreased urine output, bilateral leg swelling, and fatigue for 3 days",
+    "symptoms": [
+      "Oliguria — urine output less than 400mL in 24 hours",
+      "Bilateral lower extremity pitting edema (new)",
+      "Nausea and loss of appetite",
+      "Generalized weakness and malaise",
+      "Mild confusion (intermittent)",
+      "Shortness of breath when lying flat (new)"
+    ],
+    "vitals": {
+      "temperature": 36.9,
+      "heart_rate": 90,
+      "respiratory_rate": 20,
+      "blood_pressure": "165/95",
+      "spo2": 94.0
+    },
+    "history": "Hypertension, CKD stage 3 (baseline creatinine 1.5), osteoarthritis. Started ibuprofen 600mg TID for knee pain 10 days ago",
+    "medications": ["Lisinopril 20mg daily", "Hydrochlorothiazide 25mg daily", "Ibuprofen 600mg TID (started 10 days ago)", "Atorvastatin 20mg daily"],
+    "allergies": [],
+    "lab_results": {
+      "creatinine": "4.2 mg/dL (baseline 1.5)",
+      "BUN": "65 mg/dL",
+      "potassium": "6.1 mEq/L (dangerously elevated)",
+      "sodium": "133 mEq/L",
+      "phosphate": "5.8 mg/dL",
+      "urinalysis": "Bland sediment, FENa <1% (prerenal pattern)",
+      "renal_ultrasound": "Normal-sized kidneys, no hydronephrosis",
+      "bicarbonate": "18 mEq/L (mild metabolic acidosis)"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Kidney Injury - Drug-Induced (NSAID + ACEi + Diuretic Triple Whammy)",
+    "expected_icd11_codes": ["GB60", "GB61"],
+    "should_detect": [
+      "STOP all nephrotoxic agents immediately: ibuprofen, lisinopril, hydrochlorothiazide",
+      "Triple whammy: NSAIDs + ACEi + diuretic = afferent + efferent arteriolar + volume effects",
+      "URGENT: Hyperkalemia K+ 6.1 — ECG now, calcium gluconate if ECG changes",
+      "Insulin + dextrose + salbutamol nebulizer for acute K+ lowering",
+      "IV fluid resuscitation (cautious — check for fluid overload)",
+      "Nephrology consult for possible dialysis if K+ unresponsive",
+      "Switch antihypertensive to calcium channel blocker",
+      "Alternative analgesia: paracetamol, topical NSAIDs, or intra-articular injection"
+    ],
+    "red_flags": ["Hyperkalemia K+ > 6.0 (cardiac arrest risk)", "Oliguria", "AKI on CKD (high risk of ESRD)", "Fluid overload with orthopnea"]
+  }
+}

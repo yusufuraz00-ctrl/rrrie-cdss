@@ -1,0 +1,49 @@
+{
+  "case_id": "TC-009",
+  "title": "Acute Ischemic Stroke - Left MCA Territory",
+  "icd11_expected": "8B11.0",
+  "patient_data": {
+    "age": 72,
+    "sex": "male",
+    "chief_complaint": "Sudden onset right-sided weakness and difficulty speaking for 90 minutes",
+    "symptoms": [
+      "Right hemiparesis (arm > leg)",
+      "Expressive aphasia — unable to form complete sentences",
+      "Right facial droop",
+      "Visual neglect on the right",
+      "No headache or vomiting"
+    ],
+    "vitals": {
+      "temperature": 36.8,
+      "heart_rate": 88,
+      "respiratory_rate": 18,
+      "blood_pressure": "185/100",
+      "spo2": 96.0
+    },
+    "history": "Atrial fibrillation (not on anticoagulation), hypertension, hyperlipidemia, ex-smoker (40 pack-years)",
+    "medications": ["Amlodipine 10mg daily", "Atorvastatin 40mg daily", "Aspirin 81mg daily"],
+    "allergies": ["Warfarin (GI bleeding)"],
+    "lab_results": {
+      "blood_glucose": "145 mg/dL",
+      "INR": "1.0",
+      "platelets": "220 x10^9/L",
+      "creatinine": "1.1 mg/dL",
+      "CT_head": "No acute hemorrhage, early hypodensity left MCA territory",
+      "NIHSS": "14"
+    }
+  },
+  "expected_output": {
+    "primary_diagnosis": "Acute Ischemic Stroke - Left MCA Territory",
+    "expected_icd11_codes": ["8B11.0", "8B11"],
+    "should_detect": [
+      "tPA (alteplase) IV within 4.5-hour window — patient within window",
+      "Blood pressure management (permissive HTN, do NOT drop below 180/105 pre-thrombolysis)",
+      "Urgent CT angiography for large vessel occlusion assessment",
+      "Consider mechanical thrombectomy if LVO confirmed",
+      "AFib as likely embolic source — plan anticoagulation post-acute phase",
+      "NPO status until swallow assessment",
+      "Stroke unit admission, neuro checks q15min"
+    ],
+    "red_flags": ["NIHSS ≥ 10 (severe stroke)", "Aphasia", "Hypertension crisis", "AFib without anticoagulation"]
+  }
+}
