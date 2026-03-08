@@ -156,8 +156,9 @@ def simplify_for_ie(
             diff_lines.append(f"- #{rank}: {name} ({conf:.0%})")
         sections.append("\n".join(diff_lines))
 
-    # ── Section 6: R2 Evidence Stats (critical for evidence-gap detection) ──
-    # Match both 'pubmed' (static fallback) and 'search_pubmed' (dynamic dispatch)
+    # ── Section 6: R2 Evidence Manifest (for citation verification) ──
+    # Always build an evidence manifest so IE can cross-check R3's citations
+    # against what R2 actually found — prevents hallucinated PMIDs.
     _is_pubmed = lambda e: "pubmed" in e.get("source", "").lower()
     _is_epmc = lambda e: "europe_pmc" in e.get("source", "").lower()
     _is_s2 = lambda e: "semantic_scholar" in e.get("source", "").lower()
@@ -190,28 +191,51 @@ def simplify_for_ie(
         ev_section += "- WARNING: No supporting literature found for any hypothesis.\n"
     sections.append(ev_section)
 
-    # ── Section 7: R3 Citations (for fabrication check) ──
+    # ── Section 6.1: Evidence Manifest (query→result map for verification) ──
+    # Compact manifest: each R2 query with its result count + top title
+    manifest_lines = ["## R2 Evidence Manifest (query→result verification)"]
+    for e in r2_evidence[:12]:
+        src = e.get("source", "?")
+        query = e.get("query", "?")[:60]
+        count = e.get("count", 0)
+        top_title = ""
+        for a in e.get("articles", [])[:1]:
+            top_title = a.get("title", "")[:50]
+        for p in e.get("papers", [])[:1]:
+            if not top_title:
+                top_title = p.get("title", "")[:50]
+        result_str = f"{count} results" if count > 0 else "ZERO results"
+        line = f"- [{src}] \"{query}\" → {result_str}"
+        if top_title:
+            line += f" (top: {top_title}...)"
+        manifest_lines.append(line)
+    sections.append("\n".join(manifest_lines))
+
+    # ── Section 7: R2 Actual PMIDs + R3 Citation Check ──
+    # Always collect real PMIDs from R2 for cross-checking
+    real_pmids = set()
+    for e in r2_evidence:
+        for a in e.get("articles", []):
+            pmid = a.get("pmid", "")
+            if pmid:
+                real_pmids.add(str(pmid))
+        for p in e.get("papers", []):
+            pid = p.get("paperId", p.get("pmid", ""))
+            if pid:
+                real_pmids.add(str(pid))
+
     citations = r3_json.get("citations", [])
     if citations:
-        # List PMIDs R3 claims to cite
         pmid_list = [c.get("pmid", "?") for c in citations[:5]]
         sections.append(f"## R3 Cited PMIDs\n{', '.join(pmid_list)}")
 
-        # List PMIDs that actually came from R2 (scan ALL article sources)
-        real_pmids = set()
-        for e in r2_evidence:
-            for a in e.get("articles", []):
-                pmid = a.get("pmid", "")
-                if pmid:
-                    real_pmids.add(str(pmid))
-            for p in e.get("papers", []):
-                pid = p.get("paperId", p.get("pmid", ""))
-                if pid:
-                    real_pmids.add(str(pid))
-        if real_pmids:
-            sections.append(f"## R2 Actual PMIDs\n{', '.join(sorted(real_pmids))}")
-        else:
-            sections.append("## R2 Actual PMIDs\nNone — R2 returned zero articles.")
+    if real_pmids:
+        sections.append(f"## R2 Actual PMIDs (ONLY these are valid to cite)\n{', '.join(sorted(real_pmids))}")
+    else:
+        sections.append(
+            "## R2 Actual PMIDs\nNone — R2 returned zero articles. "
+            "R3's citations list MUST be empty []. Any cited PMID is FABRICATED."
+        )
 
     # ── Section 8: Memory Context (from 3-tier experience system) ──
     if memory_context and not memory_context.is_empty:

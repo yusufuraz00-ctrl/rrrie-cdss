@@ -30,7 +30,7 @@ STAGE_FLOORS: dict[str, dict[str, int]] = {
     #              thinking   fast
     "R1":  {"thinking": 2048, "fast": 1024},
     "R3":  {"thinking": 2048, "fast": 1024},
-    "IE":  {"thinking": 1024, "fast": 512},
+    "IE":  {"thinking": 1536, "fast": 768},
     "TX":  {"thinking": 512,  "fast": 384},
 }
 
@@ -38,7 +38,7 @@ STAGE_FLOORS: dict[str, dict[str, int]] = {
 STAGE_BASE_TOKENS: dict[str, dict[str, int]] = {
     "R1":  {"thinking": 3072, "fast": 2048},
     "R3":  {"thinking": 3072, "fast": 2048},
-    "IE":  {"thinking": 2048, "fast": 1024},
+    "IE":  {"thinking": 2560, "fast": 1280},
     "TX":  {"thinking": 1024, "fast": 512},
 }
 

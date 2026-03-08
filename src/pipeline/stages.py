@@ -23,6 +23,7 @@ from src.llm.prompt_templates import (
     FAST_MODE_INSTRUCTION,
     R2_QUERY_GENERATION_PROMPT,
     R2_QUERY_USER_TEMPLATE,
+    adapt_prompt_for_complexity,
 )
 from src.llm.stage_adapter import resolve_icd_codes
 from src.utils.safety_checks import detect_red_flags
@@ -407,6 +408,7 @@ async def run_r1(
     thinking_enabled: bool = True,
     local_only: bool = False,
     budget: Any = None,
+    complexity: str = "moderate",
 ) -> tuple[dict, dict, str]:
     """Run R1 stage: reasoned differential analysis.
 
@@ -445,7 +447,7 @@ async def run_r1(
         patient_text_r1 = FAST_MODE_INSTRUCTION + "\n\n" + patient_text_r1
 
     r1_messages = [
-        {"role": "system", "content": R1_SYSTEM_PROMPT},
+        {"role": "system", "content": adapt_prompt_for_complexity(R1_SYSTEM_PROMPT, complexity) if not (use_gemini_r1 or use_groq_r1) else R1_SYSTEM_PROMPT},
         {"role": "user", "content": patient_text_r1},
     ]
 

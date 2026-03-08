@@ -23,6 +23,7 @@ from src.llm.prompt_templates import (
     ITERATION_FEEDBACK_TEMPLATE,
     PERSPECTIVE_SHIFT_PROMPTS,
     MEMORY_PREAMBLE,
+    adapt_prompt_for_complexity,
 )
 from src.llm.stage_adapter import simplify_for_ie, resolve_icd_codes
 from src.memory.case_store import CaseStore, MemoryContext
@@ -44,9 +45,85 @@ from src.pipeline.dllm_r0 import DLLMR0, R0Result
 from src.pipeline.router import route as route_pipeline, PipelineConfig
 from src.pipeline.iteration_ctrl import IterationController
 
+from src.pipeline.ie_layers import run_layered_ie
+
 from config.settings import get_settings
 
 logger = logging.getLogger("rrrie-cdss")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Semantic Diagnosis Similarity — for stagnation detection
+# ═══════════════════════════════════════════════════════════════════
+
+# Common medical abbreviation → expansion mapping
+_DX_ABBREVIATIONS: dict[str, str] = {
+    "ami": "acute myocardial infarction",
+    "mi": "myocardial infarction",
+    "pe": "pulmonary embolism",
+    "dvt": "deep vein thrombosis",
+    "dka": "diabetic ketoacidosis",
+    "uti": "urinary tract infection",
+    "copd": "chronic obstructive pulmonary disease",
+    "acs": "acute coronary syndrome",
+    "cva": "cerebrovascular accident",
+    "tia": "transient ischemic attack",
+    "chf": "congestive heart failure",
+    "hf": "heart failure",
+    "ards": "acute respiratory distress syndrome",
+    "aki": "acute kidney injury",
+    "ckd": "chronic kidney disease",
+    "sle": "systemic lupus erythematosus",
+    "gca": "giant cell arteritis",
+    "ie": "infective endocarditis",
+    "tb": "tuberculosis",
+    "scd": "sickle cell disease",
+    "t1dm": "type 1 diabetes mellitus",
+    "t2dm": "type 2 diabetes mellitus",
+}
+
+# Filler words to strip for word overlap
+_STOP_WORDS = frozenset({
+    "a", "an", "the", "of", "in", "with", "and", "or", "due", "to",
+    "by", "on", "for", "from", "type", "stage", "grade", "syndrome",
+    "disease", "disorder", "condition", "acute", "chronic", "severe",
+})
+
+
+def _diagnoses_are_similar(dx_a: str, dx_b: str, threshold: float = 0.55) -> bool:
+    """Check if two diagnosis names are semantically similar using word overlap.
+
+    Handles abbreviations (AMI ↔ Acute Myocardial Infarction),
+    synonyms (Heart Attack ↔ MI), and minor wording differences.
+    Returns True if Jaccard similarity of content words ≥ threshold.
+    """
+    if not dx_a or not dx_b:
+        return False
+
+    def _normalize(dx: str) -> set[str]:
+        dx_lower = dx.lower().strip()
+        # Expand known abbreviations
+        expanded = _DX_ABBREVIATIONS.get(dx_lower, dx_lower)
+        words = set(re.split(r"[\s\-/,()]+", expanded))
+        words -= _STOP_WORDS
+        words.discard("")
+        return words
+
+    words_a = _normalize(dx_a)
+    words_b = _normalize(dx_b)
+
+    if not words_a or not words_b:
+        return dx_a.lower().strip() == dx_b.lower().strip()
+
+    # Exact match shortcut
+    if words_a == words_b:
+        return True
+
+    intersection = words_a & words_b
+    union = words_a | words_b
+    jaccard = len(intersection) / len(union) if union else 0.0
+
+    return jaccard >= threshold
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -276,81 +353,115 @@ async def run_rrrie_chat(
     )
 
     # ══════════════════════════════════════════════════════════════
-    # PHASE R0: DLLM 5-Layer Deep Analysis (0.8B model)
+    # PHASE 0: PARALLEL PRE-PROCESSING
+    #   R0 (DLLM on 0.8B), Safety+Zebra, Drug Lookup run concurrently.
+    #   R0 uses a separate GPU server, Safety/Drug are CPU/API-bound.
+    #   After all complete, R0 red flags are merged into Safety results.
     # ══════════════════════════════════════════════════════════════
     r0_result: R0Result | None = None
     pipeline_cfg: PipelineConfig | None = None
-    try:
-        from src.llm.llama_cpp_client import DLLMClient
-        dllm_client = DLLMClient(base_url=settings.dllm_api_url)
-        if dllm_client.is_healthy():
-            await ws.send_json({
-                "type": "stage_start",
-                "stage": "R0",
-                "title": "R0 — DLLM Deep Analysis 🧠",
-                "description": "Running 5-layer deep reasoning on 0.8B model...",
-            })
-            dllm_engine = DLLMR0()
-            r0_result = await dllm_engine.analyze(patient_text)
 
-            # Route pipeline based on R0 assessment
-            pipeline_cfg = route_pipeline(r0_result.complexity, r0_result.urgency)
+    async def _run_r0() -> R0Result | None:
+        """Run DLLM R0 analysis on 0.8B model (separate server)."""
+        try:
+            from src.llm.llama_cpp_client import DLLMClient
+            dllm_client = DLLMClient(base_url=settings.dllm_api_url)
+            if dllm_client.is_healthy():
+                await ws.send_json({
+                    "type": "stage_start",
+                    "stage": "R0",
+                    "title": "R0 — DLLM Deep Analysis 🧠",
+                    "description": "Running 5-layer deep reasoning on 0.8B model...",
+                })
+                dllm_engine = DLLMR0()
+                result = await dllm_engine.analyze(patient_text)
+                layers_str = "→".join(f"L{l}" for l in result.layers_run)
+                await ws.send_json({
+                    "type": "info",
+                    "stage": "R0",
+                    "content": (
+                        f"✓ DLLM R0 complete: {layers_str} in {result.total_time:.1f}s — "
+                        f"complexity={result.complexity}, urgency={result.urgency}, "
+                        f"{len(result.red_flags)} red flags, "
+                        f"{len(result.suggested_differentials)} prelim DDx"
+                    ),
+                })
+                await ws.send_json({"type": "stage_complete", "stage": "R0"})
+                logger.info(
+                    "[R0] Done: %s (%.1fs) — complexity=%s, urgency=%s",
+                    layers_str, result.total_time,
+                    result.complexity, result.urgency,
+                )
+                return result
+            else:
+                logger.info("[R0] DLLM server not available — skipping R0")
+                return None
+        except Exception as exc:
+            logger.warning("[R0] DLLM analysis failed (non-fatal): %s", exc)
+            return None
 
-            layers_str = "→".join(f"L{l}" for l in r0_result.layers_run)
-            await ws.send_json({
-                "type": "info",
-                "stage": "R0",
-                "content": (
-                    f"✓ DLLM R0 complete: {layers_str} in {r0_result.total_time:.1f}s — "
-                    f"complexity={r0_result.complexity}, urgency={r0_result.urgency}, "
-                    f"{len(r0_result.red_flags)} red flags, "
-                    f"{len(r0_result.suggested_differentials)} prelim DDx"
-                ),
-            })
-            await ws.send_json({"type": "stage_complete", "stage": "R0"})
-            logger.info(
-                "[R0] Done: %s (%.1fs) — complexity=%s, urgency=%s, route=%s iters",
-                layers_str, r0_result.total_time,
-                r0_result.complexity, r0_result.urgency,
-                pipeline_cfg.max_iterations,
-            )
-        else:
-            logger.info("[R0] DLLM server not available — skipping R0, using defaults")
-    except Exception as exc:
-        logger.warning("[R0] DLLM analysis failed (non-fatal): %s", exc)
+    async def _run_drug_lookup() -> str:
+        """Resolve patient drugs from pharmacology APIs."""
+        try:
+            from src.pipeline.drug_lookup import resolve_patient_drugs, format_drug_facts
+            resolved_drugs = await resolve_patient_drugs(patient_text)
+            if resolved_drugs:
+                facts = format_drug_facts(resolved_drugs)
+                drug_summary = ", ".join(
+                    f"{d.original_name}→{d.generic_name} ({', '.join(d.drug_class[:1]) or 'resolving...'})"
+                    for d in resolved_drugs
+                )
+                await ws.send_json({
+                    "type": "info",
+                    "stage": "SAFETY",
+                    "content": f"💊 Resolved {len(resolved_drugs)} drug(s) from external APIs: {drug_summary}",
+                })
+                logger.info("[DRUG-LOOKUP] Resolved %d drugs: %s", len(resolved_drugs), drug_summary)
+                return facts
+            return ""
+        except Exception as exc:
+            logger.warning("[DRUG-LOOKUP] Drug resolution failed (non-fatal): %s", exc)
+            return ""
 
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 0: Safety + Zebra Detection (enriched with R0 red flags)
-    # ══════════════════════════════════════════════════════════════
-    safety = await run_safety(ws, patient_text, r0_result=r0_result)
+    # Run R0, Safety (base, without R0 red flags), and Drug Lookup in parallel
+    r0_task = asyncio.create_task(_run_r0())
+    safety_task = asyncio.create_task(run_safety(ws, patient_text, r0_result=None))
+    drug_task = asyncio.create_task(_run_drug_lookup())
+
+    r0_result, safety, drug_facts_text = await asyncio.gather(
+        r0_task, safety_task, drug_task,
+    )
+
+    # Route pipeline based on R0 assessment
+    if r0_result is not None:
+        pipeline_cfg = route_pipeline(r0_result.complexity, r0_result.urgency)
+        logger.info(
+            "[ROUTER] Pipeline config: complexity=%s, max_iter=%d, min_iter=%d",
+            pipeline_cfg.complexity, pipeline_cfg.max_iterations, pipeline_cfg.min_iterations,
+        )
+
+    # Merge R0 red flags into Safety results (post-parallel)
     red_flags = safety["red_flags"]
-    zebra_matches = safety["zebra_matches"]
-    zebra_alert_text = safety["zebra_alert_text"]
-
-    # ══════════════════════════════════════════════════════════════
-    # PHASE 0.5: Dynamic Drug Lookup (Pharmacology API)
-    # ══════════════════════════════════════════════════════════════
-    drug_facts_text = ""
-    try:
-        from src.pipeline.drug_lookup import resolve_patient_drugs, format_drug_facts
-        resolved_drugs = await resolve_patient_drugs(patient_text)
-        if resolved_drugs:
-            drug_facts_text = format_drug_facts(resolved_drugs)
-            drug_summary = ", ".join(
-                f"{d.original_name}→{d.generic_name} ({', '.join(d.drug_class[:1]) or 'resolving...'})"
-                for d in resolved_drugs
-            )
+    if r0_result is not None:
+        for rf in getattr(r0_result, "red_flags", []):
+            if isinstance(rf, dict):
+                label = rf.get("flag", "")
+                severity = rf.get("severity", "moderate")
+                context = rf.get("context", "")
+                text = f"[DLLM/{severity}] {label}"
+                if context:
+                    text += f" — {context}"
+                if text not in red_flags:
+                    red_flags.append(text)
+        if red_flags:
             await ws.send_json({
                 "type": "info",
                 "stage": "SAFETY",
-                "content": f"💊 Resolved {len(resolved_drugs)} drug(s) from external APIs: {drug_summary}",
+                "content": f"🔗 R0 merged {len(getattr(r0_result, 'red_flags', []))} DLLM red flags into safety results.",
             })
-            logger.info(
-                "[DRUG-LOOKUP] Resolved %d drugs: %s",
-                len(resolved_drugs), drug_summary,
-            )
-    except Exception as exc:
-        logger.warning("[DRUG-LOOKUP] Drug resolution failed (non-fatal): %s", exc)
+
+    zebra_matches = safety["zebra_matches"]
+    zebra_alert_text = safety["zebra_alert_text"]
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 1: R1 — Reasoned Analysis
@@ -386,6 +497,7 @@ async def run_rrrie_chat(
         thinking_enabled=thinking_enabled,
         local_only=local_only,
         budget=budget,
+        complexity=pipeline_cfg.complexity if pipeline_cfg else "moderate",
     )
 
     # ══════════════════════════════════════════════════════════════
@@ -580,8 +692,8 @@ async def run_rrrie_chat(
             prev_dx_name = prev_dx.get("diagnosis", "Unknown")
             prev_confidence = prev_dx.get("confidence", 0.0)
 
-            # Check stagnation: same primary diagnosis repeated?
-            if prev_primary_diagnoses and prev_dx_name.lower() == prev_primary_diagnoses[-1].lower():
+            # Check stagnation: same primary diagnosis repeated? (semantic similarity)
+            if prev_primary_diagnoses and _diagnoses_are_similar(prev_dx_name, prev_primary_diagnoses[-1]):
                 stagnation_count += 1
             else:
                 stagnation_count = 0
@@ -706,7 +818,10 @@ async def run_rrrie_chat(
 
         # Two-Phase Architecture: diagnosis-only prompt in thinking mode,
         # full prompt (with treatment) only in fast mode.
-        r3_system = R3_SYSTEM_PROMPT if is_fast else R3_DIAGNOSIS_SYSTEM_PROMPT
+        r3_system_raw = R3_SYSTEM_PROMPT if is_fast else R3_DIAGNOSIS_SYSTEM_PROMPT
+        # Adaptive prompt trimming: only trim for local model (cloud has plenty of context)
+        r3_is_local = not (use_gemini or use_groq_r3)
+        r3_system = adapt_prompt_for_complexity(r3_system_raw, pipeline_cfg.complexity if pipeline_cfg and r3_is_local else "moderate")
         r3_messages = [
             {"role": "system", "content": r3_system},
             {"role": "user", "content": r3_base_context},
@@ -869,6 +984,7 @@ async def run_rrrie_chat(
         ]
 
         ie_prompt_est = len(ie_context) // 3
+        _used_layered_ie = False
 
         if use_gemini:
             # Gemini mode: IE uses Gemini Flash/Pro
@@ -910,16 +1026,49 @@ async def run_rrrie_chat(
                     budget_managed=True,
                 )
         else:
-            # Standard: IE uses local model
-            ie_max_tokens = budget.allocate("IE", iteration=iteration, prompt_tokens=ie_prompt_est, is_groq=False)
-            ie_thinking = thinking_enabled if not local_only else False
-            ie_result = await stream_llm_completion(
-                ws, llm_client, llama_server_url, ie_messages,
-                stage="IE", max_tokens=ie_max_tokens, thinking_enabled=ie_thinking,
-                budget_managed=True,
+            # Standard: IE uses local model — LAYERED approach for 4B model
+            # Decomposes the monolithic 9-check IE into 3 focused micro-checks
+            # that the 4B model can handle without truncation.
+            ie_thinking_local = thinking_enabled if not local_only else False
+
+            async def _local_ie_call(messages, max_tokens):
+                """Wrapper for layered IE calls using local LLM."""
+                return await stream_llm_completion(
+                    ws, llm_client, llama_server_url, messages,
+                    stage="IE", max_tokens=max_tokens,
+                    thinking_enabled=ie_thinking_local,
+                    budget_managed=True,
+                )
+
+            def _local_budget_alloc(stage, iteration, prompt_tokens):
+                return budget.allocate(stage, iteration=iteration, prompt_tokens=prompt_tokens, is_groq=False)
+
+            layered_result = await run_layered_ie(
+                patient_text=patient_text,
+                r1_json=r1_json,
+                r3_json=r3_json,
+                r2_evidence=r2_evidence,
+                drug_facts=drug_facts_text,
+                paradox_text=paradox_ie_text,
+                call_fn=_local_ie_call,
+                budget_allocate=_local_budget_alloc,
+                iteration=iteration,
             )
 
-        ie_json = parse_json_from_response(ie_result["clean_content"])
+            ie_json = layered_result
+            ie_max_tokens = 0  # layered IE manages its own budget per-layer
+            # Build a synthetic ie_result for stats compatibility
+            ie_result = {
+                "completion_tokens": layered_result.get("_completion_tokens", 0),
+                "elapsed": layered_result.get("_elapsed", 0),
+                "tok_per_sec": round(
+                    layered_result.get("_completion_tokens", 0) / max(layered_result.get("_elapsed", 0.1), 0.1), 1
+                ),
+            }
+            _used_layered_ie = True
+
+        if not _used_layered_ie:
+            ie_json = parse_json_from_response(ie_result["clean_content"])
 
         # ── Extract IE's diagnosis suggestion (if any) ──
         ie_suggested_dx = _extract_ie_diagnosis_suggestion(ie_json)

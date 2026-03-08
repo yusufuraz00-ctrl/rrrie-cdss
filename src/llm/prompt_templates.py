@@ -27,12 +27,32 @@ Architecture (Strategy D — March 2026):
 
 from __future__ import annotations
 
+import re
+
 
 # ── Fast-mode prefix (prepended to user message by server.py) ───────
 FAST_MODE_INSTRUCTION = (
     "⚡ FAST MODE: Be concise. Max 3 diagnoses. Short explanations only. "
     "Skip low-priority gaps. Focus on most likely + most dangerous."
 )
+
+
+# ── Adaptive Prompt Trimming ────────────────────────────────────────
+# Sections wrapped in @@ADVANCED_START@@ / @@ADVANCED_END@@ are stripped
+# for simple cases to save context window tokens on the 4B local model.
+_ADVANCED_RE = re.compile(r"@@ADVANCED_START@@.*?@@ADVANCED_END@@\n?", re.DOTALL)
+
+
+def adapt_prompt_for_complexity(prompt: str, complexity: str) -> str:
+    """Trim verbose prompt sections based on R0 complexity assessment.
+
+    - simple:   strip all @@ADVANCED@@ blocks (~2000 tokens saved)
+    - moderate:  keep everything (default behavior)
+    - complex/critical: keep everything
+    """
+    if complexity == "simple":
+        return _ADVANCED_RE.sub("", prompt)
+    return prompt.replace("@@ADVANCED_START@@\n", "").replace("@@ADVANCED_END@@\n", "").replace("@@ADVANCED_START@@", "").replace("@@ADVANCED_END@@", "")
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -322,6 +342,7 @@ PRINCIPLES (internalize — do not recite them):
 - Multi-system presentation → think UNIFYING pathology: autoimmune, metabolic, nutritional,
   infectious, or toxic. A single process damaging multiple organs is more likely than coincidence.
 - "What am I missing?" is the most important question in medicine
+@@ADVANCED_START@@
 - ENVIRONMENTAL & CONTEXTUAL REASONING (MANDATORY — the WHERE and WHEN are diagnostic):
   The environment where symptoms started is NOT background detail — it may be the ROOT CAUSE.
   Examples of environmental diagnostic triggers:
@@ -331,6 +352,7 @@ PRINCIPLES (internalize — do not recite them):
   • Restaurant/party → food poisoning, anaphylaxis, choking
   • New medication started → drug reaction, interaction, unmasked deficiency
   ALWAYS ask: "Could the ENVIRONMENT or TIMING itself have caused or triggered the pathology?"
+@@ADVANCED_END@@
 - DRUG-TRIGGERED EXACERBATION (critical diagnostic clue):
   If the history mentions ANY medication or treatment that WORSENED symptoms, ask:
   "Which conditions on my differential are TRIGGERED or EXACERBATED by this drug?"
@@ -338,6 +360,7 @@ PRINCIPLES (internalize — do not recite them):
   powerful discriminator — it narrows the differential more than any lab test.
   Common mechanism: a drug induces an enzyme, depletes a cofactor, or unmasks a latent defect.
   List the worsening drug in red_flags and note which diagnoses it implicates in knowledge_gaps.
+@@ADVANCED_START@@
 - SEMANTIC DISAMBIGUATION OF AMBIGUOUS SIGNS:
   When a clinical sign has MULTIPLE possible interpretations, you MUST list ALL interpretations
   and map each to a different diagnosis. Do NOT anchor on the most common interpretation.
@@ -356,10 +379,11 @@ PRINCIPLES (internalize — do not recite them):
   may have had subclinical disease or died without diagnosis. Score missing family history as
   NEUTRAL (neither supporting nor opposing), NEVER as "against_factor". Only score family
   history against a genetic diagnosis if a specific genetic test was performed and was NEGATIVE.
+@@ADVANCED_END@@
 
 CLINICAL SUSPICION (MANDATORY — apply AFTER generating differential):
 After your differential diagnoses, you MUST perform these self-checks:
-
+@@ADVANCED_START@@
 1. ENVIRONMENTAL TRIGGER ANALYSIS:
    Look at WHERE and WHEN symptoms started. Could the SETTING have caused the pathology?
    Map each environmental detail to potential diagnoses.
@@ -374,6 +398,7 @@ After your differential diagnoses, you MUST perform these self-checks:
    "If I prescribe the STANDARD treatment for my top diagnosis and I am WRONG,
     could that treatment cause IRREVERSIBLE HARM to the patient?"
    If YES → flag the dangerous treatment and the alternative diagnosis it would harm.
+@@ADVANCED_END@@
 
 OUTPUT — valid JSON only:
 {
@@ -679,7 +704,7 @@ EVIDENCE INTEGRATION RULES:
 SEARCH FAILURE vs. DIAGNOSIS FAILURE:
 - R1 confidence ≥ 0.85 AND reasoning internally coherent → MAINTAIN R1's diagnosis
   even with limited R2 evidence. Absence of evidence ≠ Evidence of absence.
-
+@@ADVANCED_START@@
 PARADOX-AWARE SYNTHESIS:
 - DRUG-EXACERBATION RULE: If a medication WORSENED symptoms → identify which diagnoses
   on R1's differential are TRIGGERED or EXACERBATED by that drug. Give them ELEVATED
@@ -687,6 +712,7 @@ PARADOX-AWARE SYNTHESIS:
 - R1 DIFFERENTIAL PRESERVATION: Address ALL of R1's top 3 diagnoses explicitly.
   AGREE → explain supporting evidence. DISAGREE → cite specific contradicting findings.
   Never silently drop a diagnosis.
+@@ADVANCED_END@@
 
 CITATION INTEGRITY:
 - Only cite PMIDs from R2 evidence. Never invent PMIDs. No ICD codes.
