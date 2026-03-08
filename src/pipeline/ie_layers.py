@@ -28,9 +28,29 @@ logger = logging.getLogger("rrrie-cdss")
 
 LAYER_A_SYSTEM = """You are a medical fact-checker. Check for HALLUCINATIONS, SYMPTOM COVERAGE, and DIAGNOSTIC CATEGORY GAPS.
 
+═══ GROUNDING RULES (MANDATORY — apply BEFORE any hallucination check) ═══
+1. TRIAGE VITALS ARE VERIFIED DATA. Age, sex, blood pressure, heart rate, temperature,
+   and any structured data from "TRIAGE VITALS" section are MEDICAL FACTS recorded by
+   clinical staff. If R1 restates them (even in different language or format, e.g.
+   "24 y, Kadın" → "24-year-old female"), that is NOT a hallucination.
+2. PARAPHRASING is NOT HALLUCINATION. If R1 restates a patient's words in clinical
+   language (e.g. patient says "I fainted" → R1 writes "Syncope", or patient says
+   "I haven't eaten" → R1 writes "History of fasting"), that is clinical interpretation,
+   NOT fabrication.
+3. TRANSLATION is NOT HALLUCINATION. If the patient speaks in one language (e.g. Turkish)
+   and R1 reports findings in English, matching concepts are valid clinical mappings.
+   Example: "açlıktan tansiyonum düştü" = "low blood pressure from hunger" — NOT hallucination.
+4. A true HALLUCINATION is information that has ZERO basis in the patient text, triage data,
+   or reasonable clinical inference from stated symptoms. Only flag something as hallucination
+   if you cannot find ANY related phrase in the original text or triage data.
+5. Before listing ANY hallucination, mentally verify: "Is there ANY phrase in the Original
+   Patient Text or Triage Vitals that could be the source of this finding?" If YES → NOT
+   a hallucination. Only if the answer is definitively NO → flag it.
+═══════════════════════════════════════════════════════════════════════════
+
 TASK 1 — HALLUCINATION CHECK:
-Compare "R1 Reported Findings" (key_positives) against "Original Patient Text".
-If R1 lists ANY finding NOT explicitly in the patient text → that is a hallucination.
+Compare "R1 Reported Findings" (key_positives) against "Original Patient Text" AND "Triage Vitals".
+Apply GROUNDING RULES above. Only flag findings with ZERO basis in the text or triage data.
 
 TASK 2 — SYMPTOM COVERAGE:
 For each patient symptom, is it explained by the primary diagnosis?
@@ -98,22 +118,35 @@ You receive the results of two prior checks:
 
 Based on these findings, make the FINAL decision.
 
+═══ LETHAL FOCUS RULE (MOST IMPORTANT — READ FIRST) ═══
+Your job is NOT to make the assessment academically perfect or textbook-complete.
+Your SOLE purpose is: "Will the current diagnosis and plan KILL or SERIOUSLY HARM the patient?"
+
+- Missing diagnostic CATEGORIES alone do NOT warrant ITERATE.
+  A well-supported diagnosis that explains ALL major symptoms is CORRECT even if the
+  differential list doesn't cover every medical specialty (Cardiovascular, Neurological, etc.).
+- "Tunnel vision" is only a problem if it MISSES A LETHAL ALTERNATIVE that explains
+  symptoms BETTER. If the primary diagnosis already explains all major findings with
+  confidence ≥ 0.70 → category gaps are MINOR documentation issues, not diagnostic failures.
+- Do NOT force ITERATE just because some organ-system categories are unrepresented.
+  Forcing the model to consider irrelevant categories DESTROYS correct diagnoses.
+- ITERATE only when you identify a CONCRETE threat to patient safety:
+  (a) Hallucinated findings that change the clinical picture
+  (b) A MAJOR symptom that the primary diagnosis CANNOT explain
+  (c) A wrong drug or lethal contraindication
+  (d) A clearly BETTER diagnosis being ignored despite strong evidence
+═══════════════════════════════════════════════════════════
+
 RULES:
-- If ANY hallucination or unexplained major symptom → decision = "ITERATE"
+- If ANY hallucination found → decision = "ITERATE"
+- If ANY major symptom is genuinely unexplained by the primary diagnosis → decision = "ITERATE"
 - If ANY fabricated citation → decision = "ITERATE"
 - If ANY critical treatment safety issue → decision = "ITERATE"
 - If primary diagnosis is "Unknown" or 0% → decision = "ITERATE" and suggest a diagnosis
+- If missing categories but diagnosis is well-supported (confidence ≥ 0.70) and
+  all major symptoms are explained → these are MINOR issues, decision = "FINALIZE"
 - If only minor issues → decision = "FINALIZE"
 - Set confidence based on severity of issues found (0.0-1.0)
-
-FRAME BLINDNESS CHECK (MANDATORY — perform BEFORE deciding):
-Before making your decision, ask yourself:
-1. Could a COMPLETELY DIFFERENT diagnostic framework explain ALL symptoms equally well or better?
-2. If the entire R1→R3 chain went down ONE organ-system path (e.g., GI), is there an ALTERNATIVE
-   path (e.g., OB/GYN, Vascular, Hematological) that was NEVER explored?
-3. Are there any MISSING CATEGORIES from Layer A that suggest tunnel vision?
-If the answer to any of these is YES → decision MUST be "ITERATE" with the alternative
-framework as suggested_diagnosis. This catches systematic diagnostic tunnel vision.
 
 OUTPUT — valid JSON only:
 {
@@ -134,10 +167,50 @@ def _build_layer_a_context(
     r3_json: dict,
 ) -> str:
     """Build focused context for Layer A (hallucination + symptom coverage)."""
+    import re as _re
+
     # Truncate patient text intelligently
     pt = patient_text.strip()
     if len(pt) > 1800:
         pt = pt[:1200] + "\n[...]\n" + pt[-500:]
+
+    # ── Extract triage vitals from patient text for explicit grounding ──
+    triage_facts: list[str] = []
+    # Age patterns: "24 y", "24 yaş", "24-year-old", "Age: 24"
+    age_m = _re.search(r'(\d{1,3})\s*(?:y(?:aş)?(?:ında)?|year[s\-]?\s*old|yo\b)', pt, _re.IGNORECASE)
+    if age_m:
+        triage_facts.append(f"Age: {age_m.group(1)}")
+    # Sex patterns: "Kadın", "Erkek", "Female", "Male", "F/M"
+    sex_m = _re.search(r'\b(Kadın|Erkek|Female|Male|Kadin)\b', pt, _re.IGNORECASE)
+    if sex_m:
+        sex_val = sex_m.group(1).capitalize()
+        if sex_val in ("Kadın", "Kadin"):
+            sex_val = "Female (Kadın)"
+        elif sex_val == "Erkek":
+            sex_val = "Male (Erkek)"
+        triage_facts.append(f"Sex: {sex_val}")
+    # BP: "85/50", "Tansiyon: 85/50"
+    bp_m = _re.search(r'(?:Tansiyon|BP|Blood\s*Pressure)[:\s]*(\d{2,3}/\d{2,3})', pt, _re.IGNORECASE)
+    if not bp_m:
+        bp_m = _re.search(r'\b(\d{2,3}/\d{2,3})\s*mmHg', pt, _re.IGNORECASE)
+    if bp_m:
+        triage_facts.append(f"BP: {bp_m.group(1)} mmHg")
+    # HR: "128/dk", "Nabız: 128", "HR: 128"
+    hr_m = _re.search(r'(?:Nab[ıi]z|HR|Heart\s*Rate|Pulse)[:\s]*(\d{2,3})', pt, _re.IGNORECASE)
+    if hr_m:
+        triage_facts.append(f"HR: {hr_m.group(1)} bpm")
+    # Temp: "36.4°C", "Ateş: 36.4"
+    temp_m = _re.search(r'(?:Ate[şs]|Temp|Temperature)[:\s]*([\d.]+)\s*°?[CF]?', pt, _re.IGNORECASE)
+    if temp_m:
+        triage_facts.append(f"Temp: {temp_m.group(1)}°C")
+
+    triage_section = ""
+    if triage_facts:
+        triage_section = (
+            "\n\n## TRIAGE VITALS (VERIFIED MEDICAL DATA — NOT hallucination)\n"
+            + "\n".join(f"  ✓ {f}" for f in triage_facts)
+            + "\nThese are FACTS. R1 restating them in any language/format is NOT a hallucination."
+        )
 
     r1_summary = r1_json.get("patient_summary", {})
     positives = r1_summary.get("key_positives", [])
@@ -149,7 +222,7 @@ def _build_layer_a_context(
     unexplained = primary.get("unexplained_symptoms", [])
 
     return f"""## Original Patient Text
-{pt}
+{pt}{triage_section}
 
 ## R1 Reported Findings (key_positives)
 {json.dumps(positives[:12], ensure_ascii=False)}
@@ -161,7 +234,7 @@ Does NOT explain: {', '.join(unexplained[:5]) if unexplained else 'none listed'}
 ## Relevant History
 {r1_summary.get('relevant_history', 'Not recorded')}
 
-Check for hallucinations and symptom coverage gaps."""
+Check for hallucinations (applying GROUNDING RULES) and symptom coverage gaps."""
 
 
 def _build_layer_b_context(
@@ -366,7 +439,7 @@ async def run_layered_ie(
         if not any(s.lower() in i.get("detail", "").lower() for i in all_issues):
             all_issues.append({"severity": "critical", "type": "unexplained_symptom", "detail": f"Unexplained: {s}"})
     for mc in layer_a_json.get("missing_categories", []):
-        all_issues.append({"severity": "critical", "type": "missing_category", "detail": f"Missing diagnostic category: {mc}"})
+        all_issues.append({"severity": "minor", "type": "missing_category", "detail": f"Missing diagnostic category: {mc}"})
 
     # Add Layer B findings
     for fc in layer_b_json.get("fabricated_citations", []):

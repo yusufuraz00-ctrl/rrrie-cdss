@@ -313,7 +313,11 @@ class DLLMClient:
     _THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
 
     def __init__(self, base_url: str = "http://127.0.0.1:8081") -> None:
-        self._base_url = base_url.rstrip("/")
+        # Strip trailing /v1 or /v1/ to prevent double /v1/v1/ in URL
+        url = base_url.rstrip("/")
+        if url.endswith("/v1"):
+            url = url[:-3]
+        self._base_url = url
         self._session = http_requests.Session()
 
     def is_healthy(self) -> bool:

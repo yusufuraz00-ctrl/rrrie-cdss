@@ -31,7 +31,7 @@ STAGE_FLOORS: dict[str, dict[str, int]] = {
     "R1":  {"thinking": 2048, "fast": 1024},
     "R3":  {"thinking": 2048, "fast": 1024},
     "IE":  {"thinking": 1536, "fast": 768},
-    "TX":  {"thinking": 512,  "fast": 384},
+    "TX":  {"thinking": 1024, "fast": 768},
 }
 
 # Base allocation per stage (what the static system used to give)
@@ -39,7 +39,7 @@ STAGE_BASE_TOKENS: dict[str, dict[str, int]] = {
     "R1":  {"thinking": 3072, "fast": 2048},
     "R3":  {"thinking": 3072, "fast": 2048},
     "IE":  {"thinking": 2560, "fast": 1280},
-    "TX":  {"thinking": 1024, "fast": 512},
+    "TX":  {"thinking": 1536, "fast": 1024},
 }
 
 # Groq (cloud) base tokens — separate limits, not pool-managed

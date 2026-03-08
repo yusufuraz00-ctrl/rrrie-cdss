@@ -672,6 +672,17 @@ DECISION RULES:
 - If only minor issues → decision = "FINALIZE"
 - When in doubt → "ITERATE"
 
+LETHAL FOCUS RULE (OVERRIDES "When in doubt → ITERATE"):
+  Your job is NOT academic completeness. Your SOLE question is:
+  "Will the current diagnosis and plan KILL or SERIOUSLY HARM the patient?"
+  If the primary diagnosis explains ALL major symptoms with confidence ≥ 0.70,
+  do NOT force ITERATE just because:
+  - Some diagnostic categories are unrepresented in the differential list
+  - History documentation is incomplete
+  - Minor evidence gaps exist
+  Forcing iteration on a CORRECT high-confidence diagnosis risks the model
+  ABANDONING the right answer. Only ITERATE for concrete safety threats.
+
 SUGGESTED DIAGNOSIS RULE (CRITICAL):
 - If you believe the primary diagnosis is WRONG or INCOMPLETE, you MUST provide
   a "suggested_diagnosis" field with YOUR best guess at the correct diagnosis.
@@ -785,22 +796,41 @@ CRITICAL SAFETY RULES (violating any = patient harm):
    → DO NOT recommend it. This is NON-NEGOTIABLE.
    If no safety data exists for a drug → flag it as "safety unverified" in your output.
 
-3. COFACTOR-SUBSTRATE RULE (can KILL patient if violated):
+3. EVIDENCE CONFLICT OVERRIDE (LIFE-SAVING EXCEPTION TO RULE 1):
+   If the Treatment Evidence says to AVOID a drug/intervention that is an ESTABLISHED
+   GOLD-STANDARD treatment for this specific diagnosis in mainstream medical practice
+   (e.g., "avoid sodium bicarbonate" for salicylate toxicity, "avoid naloxone" for opioid
+   overdose, "avoid epinephrine" for anaphylaxis), then:
+   → The evidence is LIKELY UNRELIABLE (misquoted, out-of-context, or hallucinated).
+   → Do NOT follow the evidence blindly. Instead:
+     a) ADD the drug to your treatment plan as standard protocol.
+     b) Add an "evidence_conflict" field in your output:
+        "evidence_conflict": {
+          "drug": "drug name",
+          "evidence_says": "what the evidence claimed",
+          "standard_protocol": "what established guidelines say",
+          "decision": "Following standard protocol — evidence appears unreliable"
+        }
+   This rule EXISTS because R2 search can return misinterpreted abstracts that
+   contradict universally accepted treatments. A missing gold-standard drug KILLS patients.
+   When in doubt: include the gold-standard drug + flag the conflict.
+
+4. COFACTOR-SUBSTRATE RULE (can KILL patient if violated):
    Before loading a metabolic SUBSTRATE, ensure required COFACTORS are repleted first.
    • Thiamine (B1) BEFORE glucose in nutritional-risk patients
    • Potassium/Magnesium correction BEFORE aggressive insulin in DKA
    • Magnesium BEFORE potassium replacement
    In ANY malnourished patient: replete cofactors FIRST, treat acute condition SECOND.
 
-4. MECHANISM-AWARE PRESCRIBING:
+5. MECHANISM-AWARE PRESCRIBING:
    Understand the PATHOPHYSIOLOGY of the diagnosis before choosing drugs.
    If the disease involves DEFICIENCY of substance X → the treatment ADDS X, NOT removes it.
    If the disease involves EXCESS of substance X → the treatment REMOVES X, NOT adds more.
    If this simple logic check fails → you are prescribing the WRONG drug.
 
-5. CITATION INTEGRITY: Only cite PMIDs from the evidence provided. Never fabricate PMIDs.
+6. CITATION INTEGRITY: Only cite PMIDs from the evidence provided. Never fabricate PMIDs.
 
-6. DIFFERENTIAL SAFETY RULE (HIGHEST PRIORITY — OVERRIDES ALL OTHER RULES):
+7. DIFFERENTIAL SAFETY RULE (HIGHEST PRIORITY — OVERRIDES ALL OTHER RULES):
    If the user message includes a "CRITICAL DIFFERENTIAL SAFETY CHECK" section,
    you MUST verify every proposed drug against ALL listed differentials.
    For EACH drug, reason:

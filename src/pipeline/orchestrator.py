@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -130,6 +131,38 @@ def _diagnoses_are_similar(dx_a: str, dx_b: str, threshold: float = 0.55) -> boo
 # IE Override — Extract IE's Diagnosis Suggestion
 # ═══════════════════════════════════════════════════════════════════
 
+# Garbage phrases that indicate a non-diagnosis string (action, description, or quality assessment)
+_NON_DX_PHRASES = frozenset({
+    "well-supported", "high confidence", "low confidence", "needs further",
+    "requires additional", "no issues", "well supported", "not applicable",
+    "no critical", "no hallucination", "finalize", "iterate",
+    "likely correct", "consider evaluating", "needs evaluation",
+    "re-evaluation", "differential", "framework", "protocol",
+    "comprehensive", "multisystem", "concurrent", "evaluate for",
+    "alternative framework", "organ-system", "systematic review",
+})
+
+
+def _is_valid_diagnosis_name(candidate: str) -> bool:
+    """Check if a string looks like a real medical diagnosis name.
+
+    Rejects action phrases, quality descriptions, and framework suggestions
+    that IE sometimes outputs instead of actual diagnosis names.
+    """
+    if not candidate or len(candidate) < 3:
+        return False
+    words = candidate.split()
+    if len(words) > 12:
+        return False
+    candidate_lower = candidate.lower()
+    if any(phrase in candidate_lower for phrase in _NON_DX_PHRASES):
+        return False
+    # Must contain at least one uppercase letter (proper medical term)
+    if not re.search(r'[A-Z]', candidate):
+        return False
+    return True
+
+
 def _extract_ie_diagnosis_suggestion(ie_json: dict) -> str | None:
     """Extract a specific diagnosis suggestion from IE's output.
 
@@ -147,7 +180,9 @@ def _extract_ie_diagnosis_suggestion(ie_json: dict) -> str | None:
     if suggested and isinstance(suggested, str) and suggested.strip().lower() not in (
         "null", "none", "", "unknown", "n/a",
     ):
-        return suggested.strip()
+        candidate = suggested.strip()
+        if _is_valid_diagnosis_name(candidate):
+            return candidate
 
     # Priority 2: Parse reasoning text for diagnosis mentions
     reasoning = ie_json.get("reasoning", "")
@@ -178,7 +213,7 @@ def _extract_ie_diagnosis_suggestion(ie_json: dict) -> str | None:
                     r"\s+(?:instead|rather|perhaps|also|too|but|and|or|as\s+well)$",
                     "", suggestion, flags=re.IGNORECASE,
                 )
-                if len(suggestion) > 3:
+                if len(suggestion) > 3 and _is_valid_diagnosis_name(suggestion):
                     return suggestion
 
     # Priority 3: Check issues for wrong_diagnosis type with alternative
@@ -200,7 +235,8 @@ def _extract_ie_diagnosis_suggestion(ie_json: dict) -> str | None:
                         r"\s+(?:instead|rather|perhaps|also|too|but|and|or|as\s+well)$",
                         "", suggestion, flags=re.IGNORECASE,
                     )
-                    return suggestion
+                    if _is_valid_diagnosis_name(suggestion):
+                        return suggestion
 
     return None
 

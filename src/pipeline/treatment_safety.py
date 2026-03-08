@@ -340,7 +340,10 @@ async def validate_treatment_safety(
     )
 
     tx_plan = treatment_json.get("treatment_plan", {})
-    drugs = tx_plan.get("pharmacological", [])
+    if isinstance(tx_plan, list):
+        # LLM returned treatment_plan as a list instead of dict — adapt
+        tx_plan = {"pharmacological": tx_plan}
+    drugs = tx_plan.get("pharmacological", []) if isinstance(tx_plan, dict) else []
 
     if not drugs:
         logger.info("[SAFETY-GATE] No drugs in treatment plan — skipping validation.")

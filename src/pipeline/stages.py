@@ -387,7 +387,12 @@ async def _translate_clinical_context_for_r2(
                 if mesh:
                     line += f" [MeSH: {', '.join(mesh[:3])}]"
                 brief_parts.append(line)
-                english_dx_names.append(eng)
+                # Only add to english_dx_names if it looks like a diagnosis/condition,
+                # NOT a patient complaint translation. Patient phrases are long
+                # sentences with many words; real diagnoses are short clinical terms.
+                words = eng.split()
+                if len(words) <= 8 and not any(w.lower() in ('my', 'i', 'is', 'as', 'if', 'it', 'am', 'was', 'the', 'a') for w in words[:3]):
+                    english_dx_names.append(eng)
 
     if findings:
         brief_parts.append("KEY CLINICAL FINDINGS (English medical terms):")
@@ -746,14 +751,22 @@ def _optimize_query_for_tool(tool_name: str, params: dict) -> dict:
 
     # ── Tool-specific optimization ──
     if tool_name == "search_pubmed":
-        # Use existing PubMed MeSH optimizer + inject only 1 linked term
-        # PubMed AND-chains with 4+ terms return 0 results, so be conservative
-        optimized = _optimize_pubmed_query(raw_query)
+        # If query already contains [MeSH] tags (i.e. from programmatic generator),
+        # skip re-optimization — it would destroy the pre-formatted query.
+        if "[MeSH]" in raw_query or "[mesh]" in raw_query:
+            logger.info("[R2-QUERY] PubMed query already MeSH-formatted, skipping re-optimization: '%s'", raw_query[:80])
+            optimized = raw_query
+        else:
+            # Use existing PubMed MeSH optimizer + inject only 1 linked term
+            # PubMed AND-chains with 4+ terms return 0 results, so be conservative
+            optimized = _optimize_pubmed_query(raw_query)
         if linked_additions:
-            # Only append 1 linked term (the most specific one, usually longest)
-            best_link = max(linked_additions, key=len)
-            optimized += f' AND "{best_link}"'
-            logger.info("[R2-LINK] PubMed enriched with clinical link: %s", best_link)
+            # Only append 1 linked term if total AND-chain stays ≤ 3
+            and_count = optimized.upper().count(" AND ")
+            if and_count < 3:
+                best_link = max(linked_additions, key=len)
+                optimized += f' AND "{best_link}"'
+                logger.info("[R2-LINK] PubMed enriched with clinical link: %s", best_link)
         params["query"] = optimized
 
     elif tool_name == "search_europe_pmc":
@@ -1468,7 +1481,7 @@ async def _execute_tool_query(
         # Strategy: first try BROAD_CATEGORIES (semantic broadening), then
         # fallback to simple word truncation. This is generic — works for ANY condition.
 
-        # PubMed: relax MeSH query, then try broad category
+        # PubMed: relax MeSH query, then try broad category, then single-term
         if tool_name == "search_pubmed" and result.get("total_found", 0) == 0:
             relaxed = _relax_pubmed_query(params["query"])
             if relaxed and relaxed != params["query"]:
@@ -1484,6 +1497,24 @@ async def _execute_tool_query(
                     params["query"] = broad
                     display_query = f"{broad}  (← broad category)"
                     result = await fn(**params)
+            # If STILL 0, progressive term reduction: try fewer AND terms, then single term
+            if result.get("total_found", 0) == 0:
+                import re as _re
+                # Extract all meaningful terms from the original query
+                _stripped = _re.sub(r'\[MeSH\]', '', original_query)
+                _stripped = _stripped.replace('"', '').strip()
+                _parts = [p.strip() for p in _stripped.split('AND') if p.strip()]
+                _parts = [p for p in _parts if len(p) > 2 and p.lower() not in QUERY_FILLER_WORDS]
+                # Try progressively fewer terms: 2, then 1
+                for n in range(min(2, len(_parts)), 0, -1):
+                    if result.get("total_found", 0) > 0:
+                        break
+                    subset = " AND ".join(_parts[:n])
+                    if subset != params.get("query"):
+                        logger.info("[R2-RETRY] PubMed progressive reduction (%d terms): '%s'", n, subset)
+                        params["query"] = subset
+                        display_query = f"{subset}  (← {n}-term fallback)"
+                        result = await fn(**params)
 
         # Europe PMC: try broad category first, then simplify
         if tool_name == "search_europe_pmc" and len(result.get("articles", [])) == 0:
