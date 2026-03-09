@@ -21,6 +21,7 @@ let localMode = false;
 let pipelineStartTime = 0;
 let timerInterval = null;
 let currentGroundTruth = null; // Stores expected_output for post-mortem
+let currentTestCaseId = null; // Tracks the currently running test case ID
 
 // --- Tested Cases History (localStorage) ---
 function getTestedCases() {
@@ -279,7 +280,7 @@ function selectTestCase(id) {
   if (c && c.patient_text) {
     dom.input.value = c.patient_text;
     currentGroundTruth = c.expected_output_raw || c.expected_output; // Cache ground truth
-    markCaseAsTested(id); // Save to local storage
+    currentTestCaseId = id; // Remember which test case is selected
     autoResize();
     dom.input.focus();
   }
@@ -724,6 +725,12 @@ function handleFinalResult(data) {
   const totalTime = result.total_time || 0;
   const iterations = result.iterations || 1;
   const iterHistory = result.iteration_history || [];
+
+  // Mark the test case as tested now that the pipeline finished
+  if (currentTestCaseId) {
+    markCaseAsTested(currentTestCaseId);
+    currentTestCaseId = null;
+  }
 
   // Update tracker stats
   if (dom.trackerStats) dom.trackerStats.style.opacity = "1";
