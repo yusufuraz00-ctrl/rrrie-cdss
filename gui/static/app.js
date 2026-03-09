@@ -22,6 +22,26 @@ let pipelineStartTime = 0;
 let timerInterval = null;
 let currentGroundTruth = null; // Stores expected_output for post-mortem
 
+// --- Tested Cases History (localStorage) ---
+function getTestedCases() {
+  try {
+    const saved = localStorage.getItem("rrrie_tested_cases");
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function markCaseAsTested(id) {
+  const tested = getTestedCases();
+  if (!tested.includes(id)) {
+    tested.push(id);
+    localStorage.setItem("rrrie_tested_cases", JSON.stringify(tested));
+  }
+}
+let testedCasesCache = getTestedCases();
+// -------------------------------------------
+
 const SERVER_URL = `ws://${window.location.host}/ws/chat`;
 
 // ── DOM refs (resolved after DOMContentLoaded) ──
@@ -168,8 +188,29 @@ async function toggleTestCaseDropdown(event) {
 
   // Fetch if opening and not yet fetched
   if (!isVisible && Object.keys(fetchedCases).length === 0) {
+    testedCasesCache = getTestedCases(); // Refresh cache on open
     await fetchTestCases();
+  } else if (!isVisible && Object.keys(fetchedCases).length > 0) {
+    // If opening and already fetched, refresh the badges
+    testedCasesCache = getTestedCases();
+    refreshTestedBadges();
   }
+}
+
+function refreshTestedBadges() {
+  const dropdown = document.getElementById("testCaseDropdown");
+  if (!dropdown) return;
+  const items = dropdown.querySelectorAll(".test-case-item");
+  items.forEach(item => {
+    const id = item.getAttribute("data-id");
+    if (id && testedCasesCache.includes(id) && !item.classList.contains("tested")) {
+       item.classList.add("tested");
+       const metaDiv = item.querySelector(".test-case-item-meta");
+       if (metaDiv && !metaDiv.innerHTML.includes("fa-check-double")) {
+          metaDiv.innerHTML += ` <span style="color: var(--accent-green); font-size: 0.9em; font-weight: bold; margin-left: auto;"><i class="fa-solid fa-check-double"></i> Çözüldü</span>`;
+       }
+    }
+  });
 }
 
 // Close dropdown when clicking outside
@@ -212,11 +253,16 @@ async function fetchTestCases() {
 
       const badgeColor = c.id.startsWith("PUBMED-") ? "#a6e3a1" : "#cba6f7";
       const badgeText = c.id.startsWith("PUBMED-") ? "PUBMED" : "WHO";
+      
+      const isTested = testedCasesCache.includes(c.id);
+      if (isTested) item.classList.add("tested");
+      item.setAttribute("data-id", c.id);
 
       item.innerHTML = `
                 <div class="test-case-item-title">${escapeHTML(c.title)}</div>
                 <div class="test-case-item-meta">
                     <span><span style="background-color: ${badgeColor}; color: #1e1e2e; padding: 1px 6px; border-radius: 4px; font-weight: bold; font-size: 0.9em; margin-right: 5px;">${badgeText}</span> ${escapeHTML(c.id)}</span>
+                    ${isTested ? `<span style="color: var(--accent-green); font-size: 0.9em; font-weight: bold; margin-left: auto;"><i class="fa-solid fa-check-double"></i> Çözüldü</span>` : ''}
                 </div>
             `;
       dropdown.appendChild(item);
@@ -233,6 +279,7 @@ function selectTestCase(id) {
   if (c && c.patient_text) {
     dom.input.value = c.patient_text;
     currentGroundTruth = c.expected_output_raw || c.expected_output; // Cache ground truth
+    markCaseAsTested(id); // Save to local storage
     autoResize();
     dom.input.focus();
   }

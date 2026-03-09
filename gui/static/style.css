@@ -287,10 +287,22 @@ body {
   padding: 10px 15px;
   border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .test-case-item:hover {
+  background-color: var(--border-subtle);
+}
+
+.test-case-item.tested {
+  opacity: 0.65;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+.test-case-item.tested .test-case-item-title {
+  color: var(--text-secondary);
+}
+.test-case-item.tested:hover {
+  opacity: 1;
   background-color: var(--border-subtle);
 }
 
@@ -377,6 +389,7 @@ body {
   width: 2px;
   background: var(--border-subtle);
   z-index: 0;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
 .timeline-step {
@@ -437,6 +450,11 @@ body {
   border-color: var(--accent-green);
   color: var(--accent-green);
   box-shadow: 0 0 15px var(--accent-green-dim);
+}
+.timeline-step.active[data-stage="POST_MORTEM"] .step-icon {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  box-shadow: 0 0 15px var(--accent-blue-dim);
 }
 
 .timeline-step.completed .step-icon {
@@ -734,10 +752,13 @@ body {
 
 .message-bubble {
   max-width: 85%;
-  padding: 1.25rem;
-  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  border-radius: 16px;
   line-height: 1.6;
   font-size: 0.95rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .message-user .message-bubble {
@@ -757,12 +778,29 @@ body {
 .think-block {
   background: var(--bg-panel);
   border-left: 3px solid var(--accent-purple);
-  border-radius: 4px 8px 8px 4px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  border-radius: 4px 12px 12px 4px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--text-secondary);
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.think-block::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.03), transparent);
+  animation: shimmer 3s infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .think-header {
@@ -835,28 +873,29 @@ body {
 
 /* Input Area */
 .input-panel {
-  background: var(--bg-panel);
-  border-top: 1px solid var(--border-subtle);
   padding: 1.5rem 2rem;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
   position: relative;
+  z-index: 10;
 }
 
 .input-wrapper {
+  position: relative;
   max-width: 900px;
   margin: 0 auto;
-  position: relative;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
   display: flex;
-  align-items: flex-end;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  transition: border-color 0.2s;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .input-wrapper:focus-within {
   border-color: var(--accent-blue);
-  box-shadow: 0 4px 20px var(--accent-blue-dim);
+  box-shadow: 0 4px 25px rgba(59, 130, 246, 0.15);
 }
 
 textarea {
@@ -864,13 +903,12 @@ textarea {
   background: transparent;
   border: none;
   color: var(--text-primary);
-  padding: 1rem;
   font-family: inherit;
   font-size: 1rem;
   resize: none;
-  min-height: 56px;
+  padding: 0.8rem 0;
   max-height: 200px;
-  overflow-y: auto;
+  outline: none;
   line-height: 1.5;
 }
 

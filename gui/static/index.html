@@ -31,19 +31,18 @@
                 <span id="statusText">Connecting...</span>
             </div>
             
-            <div class="mode-switch">
-                <div class="test-case-selector" id="globalTestCaseSelector">
-                    <button onclick="toggleTestCaseDropdown(event)" class="case-btn">
-                        <i class="fa-solid fa-microscope"></i> Vaka Test Et <i class="fa-solid fa-chevron-down"></i>
-                    </button>
-                    <div id="testCaseDropdown" class="dropdown-content">
-                        <div class="dropdown-loader">
-                            <i class="fa-solid fa-spinner fa-spin"></i> Yükleniyor...
-                        </div>
+            <div class="test-case-selector" id="globalTestCaseSelector">
+                <button onclick="toggleTestCaseDropdown(event)" class="case-btn">
+                    <i class="fa-solid fa-microscope"></i> Vaka Test Et <i class="fa-solid fa-chevron-down"></i>
+                </button>
+                <div id="testCaseDropdown" class="dropdown-content">
+                    <div class="dropdown-loader">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Yükleniyor...
                     </div>
                 </div>
-                
-                <span class="mode-divider"></span>
+            </div>
+            
+            <div class="mode-switch">
                 <button id="btnSuperThinking" class="mode-btn" onclick="setMode('super')" title="Super: ALL stages use Gemini 3 Flash (fast + smart)">
                     <i class="fa-solid fa-rocket"></i> Super
                 </button>
