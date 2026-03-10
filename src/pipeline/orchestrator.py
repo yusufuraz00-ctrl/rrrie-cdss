@@ -28,6 +28,11 @@ from src.llm.prompt_templates import (
 )
 from src.llm.stage_adapter import simplify_for_ie, resolve_icd_codes
 from src.memory.case_store import CaseStore, MemoryContext
+from src.knowledge.icl_engine import ICLEngine
+from src.knowledge.knowledge_ingestor import KnowledgeIngestor
+from src.knowledge.evidence_store import EvidenceStore
+from src.pipeline.confidence_engine import calculate_calibrated_confidence
+from src.pipeline.safety_net import check_patient_safety, format_safety_alerts
 
 from src.pipeline.streaming import (
     stream_groq_completion,
@@ -402,6 +407,7 @@ async def run_rrrie_chat(
     # ══════════════════════════════════════════════════════════════
     r0_result: R0Result | None = None
     pipeline_cfg: PipelineConfig | None = None
+    evidence_store = EvidenceStore()  # Initialize early for R0 + R2 + R3 use
 
     async def _run_r0() -> R0Result | None:
         """Run DLLM R0 analysis on 0.8B model (separate server)."""
@@ -415,7 +421,7 @@ async def run_rrrie_chat(
                     "title": "R0 — DLLM Deep Analysis 🧠",
                     "description": "Running 5-layer deep reasoning on 0.8B model...",
                 })
-                dllm_engine = DLLMR0()
+                dllm_engine = DLLMR0(evidence_store=evidence_store)
                 result = await dllm_engine.analyze(patient_text)
                 layers_str = "→".join(f"L{l}" for l in result.layers_run)
                 await ws.send_json({
@@ -506,22 +512,138 @@ async def run_rrrie_chat(
     zebra_alert_text = safety["zebra_alert_text"]
 
     # ══════════════════════════════════════════════════════════════
+    # EARLY MEMORY RETRIEVAL (before R1 — for experience-driven bias)
+    # ══════════════════════════════════════════════════════════════
+    memory_ctx = memory.retrieve_context(patient_text)
+    memory_prompt_text = ""
+    if not memory_ctx.is_empty:
+        mem_stats = memory.get_stats()
+        await ws.send_json({
+            "type": "info",
+            "stage": "R0",
+            "content": (
+                f"🧠 Memory active — {mem_stats['tier3_principles']} principles, "
+                f"{mem_stats['tier2_patterns']} patterns, "
+                f"{mem_stats['tier1_cases']} past cases. "
+                f"Injecting relevant experience into R1 analysis..."
+            ),
+        })
+        logger.info(
+            "[MEMORY] Retrieved (pre-R1): %d principles, %d patterns, %d similar cases",
+            len(memory_ctx.principles), len(memory_ctx.patterns),
+            len(memory_ctx.similar_cases),
+        )
+        memory_prompt_text = MEMORY_PREAMBLE + memory_ctx.format_for_prompt()
+
+    # ══════════════════════════════════════════════════════════════
+    # ICL ENGINE — Dynamic Few-Shot Example Selection
+    # ══════════════════════════════════════════════════════════════
+    icl_engine = ICLEngine(memory)
+    icl_examples = icl_engine.select_examples(patient_text, max_examples=3)
+    icl_prompt_text = icl_engine.format_for_prompt(icl_examples)
+
+    # FAILURE CHANNEL — Anti-pattern learning from past mistakes
+    icl_failure_examples = icl_engine.select_failure_examples(patient_text, max_examples=2)
+    icl_failure_text = icl_engine.format_failures_for_prompt(icl_failure_examples)
+
+    icl_total = len(icl_examples) + len(icl_failure_examples)
+    if icl_total > 0:
+        await ws.send_json({
+            "type": "info",
+            "stage": "R0",
+            "content": (
+                f"📚 ICL Engine: {len(icl_examples)} success example(s), "
+                f"{len(icl_failure_examples)} failure example(s) found."
+            ),
+        })
+
+    # ══════════════════════════════════════════════════════════════
+    # KNOWLEDGE BASE — Textbook/Guideline Context Retrieval
+    # ══════════════════════════════════════════════════════════════
+    kb_prompt_text = ""
+    try:
+        kb = KnowledgeIngestor()
+        # Auto-ingest any new textbooks on each run (idempotent, skips already ingested)
+
+        kb.ingest_directory()
+        # Search KB for relevant textbook passages
+        kb_results = kb.search(patient_text, max_results=3)
+        kb_prompt_text = kb.format_for_prompt(kb_results)
+        if kb_prompt_text:
+            kb_stats = kb.get_stats()
+            await ws.send_json({
+                "type": "info",
+                "stage": "R0",
+                "content": f"📚 Knowledge Base: {kb_stats['total_chunks']} chunks from {kb_stats['total_sources']} sources. Found {len(kb_results)} relevant passage(s).",
+            })
+    except Exception as exc:
+        logger.warning("[KB] Knowledge Base retrieval failed (non-fatal): %s", exc)
+
+    # ══════════════════════════════════════════════════════════════
+    # SAFETY NET — Universal Life-Threatening Threshold Checks
+    # ══════════════════════════════════════════════════════════════
+    safety_alerts = check_patient_safety(patient_text)
+    safety_alert_text = format_safety_alerts(safety_alerts)
+    if safety_alerts:
+        await ws.send_json({
+            "type": "info",
+            "stage": "SAFETY",
+            "content": f"🛡️ Safety Net: {len(safety_alerts)} critical threshold(s) detected.",
+        })
+        for alert in safety_alerts:
+            await ws.send_json({
+                "type": "info",
+                "stage": "SAFETY",
+                "content": alert.alert,
+            })
+
+    # ══════════════════════════════════════════════════════════════
     # PHASE 1: R1 — Reasoned Analysis
     # ══════════════════════════════════════════════════════════════
     # Enrich patient text with R0 findings for R1
     r1_patient_text = patient_text
     if r0_result is not None:
         r0_hints = []
+        # Fix 3: Confidence-weighted R0 advisory (not directive, not ignorable hint)
+        pattern_conf = 0.0
+        if r0_result.patterns:
+            pattern_conf = max(p.get("confidence", 0.0) for p in r0_result.patterns)
+
         if r0_result.suggested_differentials:
-            r0_hints.append(
-                "\n\n📋 DLLM PRELIMINARY ANALYSIS (from 0.8B deep reasoning):\n"
-                "Suggested differentials: " + ", ".join(r0_result.suggested_differentials)
-            )
+            if pattern_conf >= 0.80:
+                # HIGH confidence — strong advisory but not forcing
+                r0_hints.append(
+                    "\n\n📋 DLLM CLINICAL TRIAGE (STRONG ADVISORY):\n"
+                    "⚠️ R0 deep analysis detected HIGH-CONFIDENCE clinical pattern(s).\n"
+                    "Pattern-matched diagnoses: " + ", ".join(r0_result.suggested_differentials) + "\n"
+                    "These diagnoses SHOULD appear in your differential list. "
+                    "You may add other diagnoses, but omitting pattern-matched ones requires explicit justification."
+                )
+            elif pattern_conf >= 0.50:
+                # MEDIUM confidence — suggest consideration
+                r0_hints.append(
+                    "\n\n📋 DLLM PRELIMINARY ANALYSIS (CONSIDER):\n"
+                    "R0 analysis suggests the following diagnoses: "
+                    + ", ".join(r0_result.suggested_differentials) + "\n"
+                    "Evaluate these against patient findings and include if clinically appropriate."
+                )
+            else:
+                # LOW confidence — informational
+                r0_hints.append(
+                    "\n\n📋 DLLM PRELIMINARY ANALYSIS (for reference):\n"
+                    "Possible diagnoses from preliminary triage: "
+                    + ", ".join(r0_result.suggested_differentials)
+                )
+
         if r0_result.connections:
             r0_hints.append("Clinical connections: " + "; ".join(r0_result.connections[:5]))
         if r0_result.patterns:
-            pattern_names = [p.get("name", "?") for p in r0_result.patterns[:3]]
-            r0_hints.append("Detected patterns: " + ", ".join(pattern_names))
+            pattern_details = []
+            for p in r0_result.patterns[:3]:
+                name = p.get("name", "?")
+                conf = p.get("confidence", 0.0)
+                pattern_details.append(f"{name} ({conf:.0%})")
+            r0_hints.append("Detected patterns: " + ", ".join(pattern_details))
         if r0_hints:
             r1_patient_text += "\n".join(r0_hints)
 
@@ -546,6 +668,29 @@ async def run_rrrie_chat(
                     })
             except Exception as exc:
                 logger.warning("[PRE-R1] Clinical annotation failed (non-fatal): %s", exc)
+
+    # Inject memory experience into R1 (soft guidance, not hard constraints)
+    if memory_prompt_text:
+        r1_patient_text += (
+            "\n\n⚠️ PAST EXPERIENCE (from similar cases — consider but don't blindly follow):\n"
+            + memory_prompt_text
+        )
+
+    # Inject ICL few-shot examples into R1
+    if icl_prompt_text:
+        r1_patient_text += "\n\n" + icl_prompt_text
+
+    # Inject failure anti-patterns into R1 (LEARN FROM MISTAKES)
+    if icl_failure_text:
+        r1_patient_text += "\n\n" + icl_failure_text
+
+    # Inject knowledge base context into R1
+    if kb_prompt_text:
+        r1_patient_text += "\n\n" + kb_prompt_text
+
+    # Inject safety net alerts into R1
+    if safety_alert_text:
+        r1_patient_text += "\n\n" + safety_alert_text
 
     r1_json, r1_result, r1_model_label = await run_r1(
         ws, r1_patient_text,
@@ -582,30 +727,40 @@ async def run_rrrie_chat(
     )
 
     # ══════════════════════════════════════════════════════════════
-    # MEMORY RETRIEVAL
+    # EVIDENCE MEMORY — Store R2 findings + retrieve past research
     # ══════════════════════════════════════════════════════════════
-    memory_ctx = memory.retrieve_context(patient_text)
-    if not memory_ctx.is_empty:
-        mem_stats = memory.get_stats()
-        await ws.send_json({
-            "type": "info",
-            "stage": "R2",
-            "content": (
-                f"🧠 Memory active — {mem_stats['tier3_principles']} principles, "
-                f"{mem_stats['tier2_patterns']} patterns, "
-                f"{mem_stats['tier1_cases']} past cases. "
-                f"Injecting relevant experience into analysis..."
-            ),
-        })
-        logger.info(
-            "[MEMORY] Retrieved: %d principles, %d patterns, %d similar cases",
-            len(memory_ctx.principles), len(memory_ctx.patterns),
-            len(memory_ctx.similar_cases),
-        )
+    past_evidence_text = ""
+    try:
+        # Store this run's R2 findings for future cases
+        primary_dx_for_evidence = ""
+        if r1_json and r1_json.get("differential_diagnoses"):
+            primary_dx_for_evidence = r1_json["differential_diagnoses"][0].get("diagnosis", "")
+        if r2_evidence and primary_dx_for_evidence:
+            ev_stats = evidence_store.store_r2_results(r2_evidence, primary_dx_for_evidence)
+            if ev_stats["stored"] > 0:
+                await ws.send_json({
+                    "type": "info",
+                    "stage": "R2",
+                    "content": (
+                        f"💾 Evidence Memory: {ev_stats['stored']} new sources saved, "
+                        f"{ev_stats['updated']} existing reinforced."
+                    ),
+                })
 
-    memory_prompt_text = ""
-    if not memory_ctx.is_empty:
-        memory_prompt_text = MEMORY_PREAMBLE + memory_ctx.format_for_prompt()
+        # Retrieve past research for additive context
+        past_results = evidence_store.search_past_evidence(patient_text, max_results=5)
+        past_evidence_text = evidence_store.format_for_prompt(past_results)
+        if past_results:
+            await ws.send_json({
+                "type": "info",
+                "stage": "R2",
+                "content": f"📚 Evidence Memory: {len(past_results)} relevant past research item(s) retrieved.",
+            })
+    except Exception as exc:
+        logger.warning("[EVIDENCE] Evidence memory failed (non-fatal): %s", exc)
+
+    # Memory was already retrieved pre-R1 — no need to retrieve again
+    # memory_prompt_text is already set from the early retrieval above
 
     # ══════════════════════════════════════════════════════════════
     # PHASE 2.5: PARADOX DETECTION (drug → worsening analysis)
@@ -738,6 +893,8 @@ async def run_rrrie_chat(
 
         if memory_prompt_text:
             r3_base_context += "\n" + memory_prompt_text + "\n"
+        if past_evidence_text:
+            r3_base_context += "\n" + past_evidence_text + "\n"
         if drug_facts_text:
             r3_base_context += "\n" + drug_facts_text + "\n"
         if paradox_directive:
@@ -776,11 +933,33 @@ async def run_rrrie_chat(
             evidence_only_issues = ie_issue_types <= {
                 "hallucination", "contradictory_stats", "evidence_gap",
                 "missing_history", "contraindication",
+                "dropped_differential", "missing_category",
+                "documentation_gap", "Differential Omission",
+                "Missing Diagnostic Category", "Incomplete History",
+                "Unexplained Symptoms",
             }
+
+            # ── SYMPTOM COVERAGE GATE (Part 1 of Smart Perspective Shift) ──
+            # If the current diagnosis explains ALL symptoms, perspective shift
+            # would regress coverage. Route to evidence-refinement instead.
+            prev_unexplained = prev_dx.get("unexplained_symptoms", [])
+            prev_explained = prev_dx.get("explains_symptoms", [])
+            full_symptom_coverage = (
+                len(prev_unexplained) == 0 and len(prev_explained) > 0
+            )
+
+            # ABSOLUTE CEILING: If model is ≥0.90 confident, NEVER fire perspective shift.
+            # COVERAGE CEILING: If ALL symptoms explained at ≥0.75 confidence, never shift.
             high_conf_stagnation = (
                 stagnation_count >= stagnation_threshold
-                and prev_confidence >= 0.75
-                and evidence_only_issues
+                and (prev_confidence >= 0.75 and evidence_only_issues)
+            ) or (
+                stagnation_count >= stagnation_threshold
+                and prev_confidence >= 0.90  # ABSOLUTE — never shift at 90%+
+            ) or (
+                stagnation_count >= stagnation_threshold
+                and full_symptom_coverage  # ALL symptoms covered — shifting would regress
+                and prev_confidence >= 0.70
             )
 
             if high_conf_stagnation:
@@ -1768,6 +1947,61 @@ in contraindication_notes.
             "description": f"Comparing AI diagnosis against Ground Truth [{ie_model_label}]"
         })
         
+        # ── DETERMINISTIC ACCURACY PRE-CHECK ──────────────────
+        # Compute accuracy_status without LLM to ensure consistency
+        def _compute_accuracy_status(ai_diagnosis: dict, ground_truth: dict) -> str:
+            """Deterministic accuracy check using ICD codes + text similarity."""
+            ai_dx_name = (ai_diagnosis.get("diagnosis") or "").lower().strip()
+            gt_dx_name = (ground_truth.get("primary_diagnosis") or "").lower().strip()
+            ai_icd = (ai_diagnosis.get("icd11_code") or "").strip()
+            gt_icd_codes = ground_truth.get("expected_icd11_codes", [])
+            
+            # 1) ICD-11 exact match (any code in expected list)
+            if ai_icd and gt_icd_codes:
+                for gt_code in gt_icd_codes:
+                    if ai_icd == gt_code:
+                        return "EXACT_MATCH"
+            
+            # 2) ICD-11 prefix match (e.g., AI: 8B11.20, GT: 8B11.0 → both under 8B11)
+            if ai_icd and gt_icd_codes:
+                ai_icd_base = ai_icd.split(".")[0].split("&")[0]  # Handle 8B11.51&XK8G
+                for gt_code in gt_icd_codes:
+                    gt_base = gt_code.split(".")[0]
+                    if ai_icd_base == gt_base:
+                        return "EXACT_MATCH"  # Same disease family = correct diagnosis
+            
+            # 3) Text-based similarity (keyword overlap)
+            if ai_dx_name and gt_dx_name:
+                # Extract key clinical terms
+                stop_words = {"the", "a", "an", "of", "in", "to", "for", "with", "from",
+                              "due", "and", "or", "by", "on", "-", "—", "undiagnosed",
+                              "secondary", "territory", "left", "right"}
+                ai_words = {w for w in ai_dx_name.replace("-", " ").replace("(", " ").replace(")", " ").split() if w not in stop_words and len(w) > 2}
+                gt_words = {w for w in gt_dx_name.replace("-", " ").replace("(", " ").replace(")", " ").split() if w not in stop_words and len(w) > 2}
+                
+                if ai_words and gt_words:
+                    overlap = ai_words & gt_words
+                    # Jaccard-like: overlap / smaller set
+                    similarity = len(overlap) / min(len(ai_words), len(gt_words)) if min(len(ai_words), len(gt_words)) > 0 else 0
+                    
+                    if similarity >= 0.5:  # ≥50% keyword overlap = same diagnosis
+                        return "EXACT_MATCH"
+                    elif similarity >= 0.25:  # ≥25% = partial
+                        return "PARTIAL_MATCH"
+            
+            return "MISDIAGNOSED"
+        
+        ai_primary = r3_json.get("primary_diagnosis", {})
+        # Include the resolved ICD code if post-R2 ICD was fetched
+        if not ai_primary.get("icd11_code") and r3_json.get("updated_diagnoses"):
+            for ud in r3_json["updated_diagnoses"]:
+                if ud.get("icd11_code"):
+                    ai_primary = {**ai_primary, "icd11_code": ud["icd11_code"]}
+                    break
+        
+        deterministic_status = _compute_accuracy_status(ai_primary, expected_output)
+        logger.info("[POST-MORTEM] Deterministic accuracy: %s", deterministic_status)
+        
         from src.llm.prompt_templates import POST_MORTEM_SYSTEM_PROMPT
         pm_context = f"""
 ## 1. AI Final Diagnosis
@@ -1778,6 +2012,10 @@ in contraindication_notes.
 
 ## 3. GROUND TRUTH (Expected Output)
 {json.dumps(expected_output, indent=2, ensure_ascii=False)}
+
+## 4. PRE-COMPUTED ACCURACY STATUS (MANDATORY — DO NOT CHANGE)
+The accuracy has been computed deterministically: **{deterministic_status}**
+You MUST use this exact accuracy_status in your JSON output. Focus your critique and clinical pearl on explaining WHY this status is appropriate and what can be learned.
 """
         pm_messages = [
             {"role": "system", "content": POST_MORTEM_SYSTEM_PROMPT},
@@ -1805,6 +2043,16 @@ in contraindication_notes.
                 )
                 
             post_mortem_json = parse_json_from_response(pm_result["clean_content"])
+            
+            # ── ENFORCE deterministic accuracy status (override LLM's decision) ──
+            if post_mortem_json:
+                llm_status = post_mortem_json.get("accuracy_status", "")
+                if llm_status != deterministic_status:
+                    logger.info(
+                        "[POST-MORTEM] Overriding LLM accuracy '%s' → deterministic '%s'",
+                        llm_status, deterministic_status,
+                    )
+                post_mortem_json["accuracy_status"] = deterministic_status
             
             await ws.send_json({
                 "type": "stage_result",
@@ -1838,6 +2086,13 @@ in contraindication_notes.
         ie_dec = ie_json.get("decision", "FINALIZE")
         ie_issues_list = ie_json.get("issues", [])
 
+        # Collect pearl from Post-Mortem (if available)
+        pm_pearl = ""
+        pm_missed = []
+        if post_mortem_json:
+            pm_pearl = post_mortem_json.get("clinical_pearl", "")
+            pm_missed = post_mortem_json.get("key_missed_symptoms", [])
+
         memory.store_case(
             patient_text=patient_text,
             primary_diagnosis=primary_dx,
@@ -1848,7 +2103,22 @@ in contraindication_notes.
             iteration_count=final_iteration,
             r1_model=r1_model_label,
             r3_model=r3_model_label,
+            clinical_pearl=pm_pearl,
+            missed_symptoms=pm_missed if isinstance(pm_missed, list) else [],
         )
+
+        # Store diagnostic pattern for adaptive L3 + L5 ranking
+        if ie_dec == "FINALIZE" and primary_dx and r3_conf >= 0.50:
+            try:
+                r3_explains = r3_json.get("primary_diagnosis", {}).get("explains_symptoms", [])
+                if r3_explains:
+                    evidence_store.store_diagnostic_pattern(
+                        diagnosis=primary_dx,
+                        symptoms=r3_explains,
+                        confidence=r3_conf,
+                    )
+            except Exception as exc:
+                logger.warning("[EVIDENCE] Pattern storage failed (non-fatal): %s", exc)
 
         if memory.should_consolidate():
             consolidation_stats = memory.consolidate()
@@ -1878,6 +2148,55 @@ in contraindication_notes.
     total_ie_tokens = sum(h["ie_tokens"] for h in iteration_history)
     total_ie_time = sum(h["ie_time"] for h in iteration_history)
 
+    # ══════════════════════════════════════════════════════════════
+    # CONFIDENCE CALIBRATION (Parallel Overlay)
+    # ══════════════════════════════════════════════════════════════
+    try:
+        # Symptom coverage: compare R3's explained symptoms against a fair denominator.
+        # R1 key_positives includes labs, vitals, imaging — not just symptoms.
+        # R3 explains_symptoms only lists clinical symptoms. To make this fair:
+        #   1. Count R3 explained symptoms
+        #   2. Use the LARGER of R1's red_flags+symptoms or R3's explains as denominator
+        #   3. This prevents labs/vitals from inflating the denominator unfairly
+        r3_explained = len(r3_json.get("primary_diagnosis", {}).get("explains_symptoms", []))
+        r1_red_flags = len(r1_json.get("patient_summary", {}).get("red_flags", []))
+        r1_key_positives = len(r1_json.get("patient_summary", {}).get("key_positives", []))
+        # Use R3's own explains_symptoms as baseline, cap R1 denominator to prevent
+        # inflated key_positives (vitals, labs, imaging) from dragging the ratio down
+        r1_symptom_count = max(r3_explained, min(r1_key_positives, r3_explained + r1_red_flags + 3))
+        r2_total = len(r2_evidence) if r2_evidence else 0
+        # FIX: R2 evidence has nested "articles" arrays, not top-level "abstract"
+        # Count sources that returned actual data (articles, answer, or results)
+        r2_supporting = sum(
+            1 for e in (r2_evidence or [])
+            if e.get("articles") or e.get("answer") or e.get("results") or e.get("count", 0) > 0
+        )
+        # Also count R3 citations as evidence signal
+        r3_citations = len(r3_json.get("citations", []))
+        if r3_citations > 0 and r2_supporting == 0:
+            r2_supporting = r3_citations  # Fallback: use R3's cited PMIDs
+        unresolved_flags = len([f for f in red_flags if "critical" in f.lower() or "severe" in f.lower()])
+
+        calibration = calculate_calibrated_confidence(
+            llm_raw_confidence=ie_json.get("confidence", r3_json.get("primary_diagnosis", {}).get("confidence", 0.5)),
+            r2_evidence_count=max(r2_total, 1),
+            r2_supporting_count=r2_supporting,
+            r1_symptom_count=max(r1_symptom_count, 1),
+            r3_explained_symptom_count=r3_explained,
+            unresolved_red_flags=unresolved_flags,
+            logic_violations=len(safety_alerts),
+        )
+
+        if calibration.warning_message:
+            await ws.send_json({
+                "type": "info",
+                "stage": "SUMMARY",
+                "content": f"📊 LLM: {calibration.raw:.0%} | Kalibre: {calibration.calibrated:.0%} {calibration.warning_message}",
+            })
+    except Exception as exc:
+        logger.warning("[CONFIDENCE] Calibration failed (non-fatal): %s", exc)
+        calibration = None
+
     final_summary = {
         "primary_diagnosis": r3_json.get("primary_diagnosis", {}),
         "differential_diagnoses": r3_json.get("updated_diagnoses", r1_json.get("differential_diagnoses", [])),
@@ -1888,6 +2207,19 @@ in contraindication_notes.
             "reasoning": ie_json.get("reasoning", ie_json.get("self_critique", "")),
             "issues": ie_json.get("issues", [])
         },
+        "confidence_calibration": {
+            "raw": calibration.raw if calibration else None,
+            "calibrated": calibration.calibrated if calibration else None,
+            "zone": calibration.zone if calibration else None,
+            "breakdown": calibration.breakdown if calibration else None,
+            "warning": calibration.warning_message if calibration else "",
+        },
+        "safety_alerts": [
+            {"parameter": a.parameter, "value": a.value, "threshold": a.threshold,
+             "alert": a.alert, "severity": a.severity}
+            for a in safety_alerts
+        ],
+        "icl_examples_used": len(icl_examples),
         "post_mortem": post_mortem_json,  # Injected Ground Truth Evaluation
         "zebra_flags": [
             {"disease": z.disease, "icd11": z.icd11, "confidence": z.confidence,
@@ -1941,7 +2273,34 @@ in contraindication_notes.
     })
     logger.info("[PIPELINE] %s", pipeline_summary_msg)
 
-    await ws.send_json({
-        "type": "final_result",
-        "data": final_summary,
-    })
+    try:
+        await ws.send_json({
+            "type": "final_result",
+            "data": final_summary,
+        })
+    except Exception as exc:
+        logger.error("[PIPELINE] final_result send failed: %s — sending simplified fallback", exc)
+        # Fallback: send a minimal version without potentially problematic fields
+        try:
+            fallback_summary = {
+                "primary_diagnosis": final_summary.get("primary_diagnosis", {}),
+                "differential_diagnoses": final_summary.get("differential_diagnoses", []),
+                "treatment_plan": {},  # Skip treatment — most common cause of serialization failure
+                "evaluation": final_summary.get("evaluation", {}),
+                "confidence_calibration": final_summary.get("confidence_calibration", {}),
+                "safety_alerts": [],
+                "post_mortem": final_summary.get("post_mortem"),
+                "zebra_flags": final_summary.get("zebra_flags", []),
+                "total_time": final_summary.get("total_time", 0),
+                "iterations": final_summary.get("iterations", 1),
+                "stages": final_summary.get("stages", {}),
+                "memory_stats": final_summary.get("memory_stats", {}),
+                "mode": final_summary.get("mode", "thinking"),
+            }
+            await ws.send_json({
+                "type": "final_result",
+                "data": fallback_summary,
+            })
+            logger.info("[PIPELINE] Fallback final_result sent successfully")
+        except Exception as exc2:
+            logger.error("[PIPELINE] Fallback final_result also failed: %s", exc2)

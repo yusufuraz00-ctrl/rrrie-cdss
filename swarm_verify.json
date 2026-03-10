@@ -1,0 +1,19 @@
+{
+  "entities": {
+    "symptoms": [
+      "Crushing substernal chest pain radiating to left arm and jaw, Diaphoresis, Nausea and vomiting, Shortness of breath"
+    ],
+    "vitals": {},
+    "medications": [],
+    "history": []
+  },
+  "complexity": "moderate",
+  "urgency": "moderate",
+  "red_flags": [],
+  "suggested_differentials": [
+    "Acute Coronary Syndrome (ACS)",
+    "Pulmonary Embolism (PE)",
+    "Anaphylactic Shock"
+  ],
+  "thinking_summary": ""
+}

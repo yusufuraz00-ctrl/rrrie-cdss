@@ -1159,6 +1159,57 @@ NARRATIVE_CASES: list[dict[str, Any]] = [
             "red_flags": ["Pain out of proportion", "Metabolic acidosis", "Elevated lactate", "AF without anticoagulation"],
         },
     },
+
+    # ── N-021: MECHANICAL BACK PAIN (BEL TUTULMASI) ─────────────────
+    {
+        "case_id": "N-021",
+        "title": "Mechanical Back Pain — Cultural Idiom 'Bıçak Saplanıyor'",
+        "difficulty": "hard",
+        "category": "musculoskeletal",
+        "narrative": (
+            "Sabah yataktan kalkarken belim resmen kilitlendi abi. Eğilip çorabımı bile giyemedim. "
+            "Öyle ağır bir şey de kaldırmadım aslında, dün akşam balkonda terli terli cereyanda oturmuştum ondan mı oldu bilmem. "
+            "Şimdi sağa sola dönerken bıçak saplanıyor sanki, nefesimi kesiyor ağrısı. "
+            "Bacağıma vuran bir sızı yok, uyuşma falan da yok ama tahta gibi tutuldum kaldım yani, doğrulurken canımdan can gidiyor. "
+            "Triyaj Notu (Gözlem): 35 Yaş, Erkek. Ateş: 36.5°C, Nabız: 78/dk, Tansiyon: 120/80 mmHg. "
+            "Fizik muayenede lomber bölgede (bel) kas spazmı mevcut. "
+            "Bacaklarda his kaybı, güç kaybı veya refleks eksikliği yok (Nörolojik muayene normal)."
+        ),
+        "patient_data": {
+            "age": 35,
+            "sex": "male",
+            "chief_complaint": "Sudden onset severe lower back pain, exacerbated by movement",
+            "symptoms": [
+                "Severe lower back pain",
+                "Muscle spasm in lumbar region",
+                "Pain on movement (sharp, 'stabbing' sensation)",
+                "No radiating pain to legs",
+                "No numbness or weakness",
+                "History of cold draft exposure ('cereyan')",
+            ],
+            "vitals": {
+                "temperature": 36.5,
+                "heart_rate": 78,
+                "respiratory_rate": 16,
+                "blood_pressure": "120/80",
+                "spo2": 98.0,
+            },
+            "history": "No heavy lifting. Cold draft exposure yesterday.",
+            "medications": [],
+            "allergies": [],
+        },
+        "expected_output": {
+            "primary_diagnosis": "Mechanical low back pain (muscle spasm)",
+            "expected_icd11_codes": ["ME84.2"],
+            "should_detect": [
+                "Idiomatic expression ('bıçak saplanması') indicates sharp musculoskeletal pain, NOT vascular/thoracic injury.",
+                "'Cereyanda kalmak' indicates cold exposure/muscle spasm, a cultural trigger.",
+                "Normal neuro exam rules out radiculopathy or cauda equina.",
+                "No red flags for serious underlying pathology despite severe subjective pain tone."
+            ],
+            "red_flags": [],
+        },
+    },
 ]
 
 

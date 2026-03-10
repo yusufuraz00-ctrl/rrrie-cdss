@@ -1285,6 +1285,143 @@ textarea::placeholder {
   margin-top: 0.1rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Confidence Calibration Gauge
+   ═══════════════════════════════════════════════════════════════ */
+.calibration-section {
+  padding-left: 15px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+
+.calibration-gauges {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 1rem 0;
+}
+
+.gauge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gauge-ring {
+  --pct: 0;
+  --ring-color: var(--accent-blue);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(
+    var(--ring-color) calc(var(--pct) * 1%),
+    rgba(255, 255, 255, 0.08) calc(var(--pct) * 1%)
+  );
+  position: relative;
+}
+
+.gauge-ring::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+}
+
+.gauge-value {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.gauge-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.zone-badge-wrap {
+  justify-content: center;
+}
+
+.zone-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  backdrop-filter: blur(4px);
+}
+
+.calibration-warning {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.5rem 0;
+}
+
+.calibration-details {
+  margin-top: 0.5rem;
+}
+
+.calibration-details summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 0.3rem 0;
+}
+
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 0.5rem 0;
+}
+
+.breakdown-grid strong {
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Safety Net Alerts
+   ═══════════════════════════════════════════════════════════════ */
+.safety-alert-section {
+  background: rgba(239, 68, 68, 0.05);
+  border-radius: 8px;
+}
+
+.safety-alert-card {
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.safety-param {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.safety-msg {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .pipeline-tracker {

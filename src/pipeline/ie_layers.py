@@ -446,8 +446,24 @@ async def run_layered_ie(
         all_issues.append({"severity": "critical", "type": "hallucination", "detail": f"Fabricated PMID: {fc}"})
     for ti in layer_b_json.get("treatment_issues", []):
         all_issues.append({"severity": "critical", "type": "contraindication", "detail": ti})
+    # Validate dropped differentials — the 4B model often halluccinates these.
+    # A differential is TRULY dropped only if it's completely absent from R3's
+    # updated_diagnoses. If it exists (even at low confidence), it's NOT dropped.
+    r3_updated_names = {
+        d.get("diagnosis", "").lower().strip()
+        for d in r3_json.get("updated_diagnoses", [])
+    }
     for dd in layer_b_json.get("dropped_differentials", []):
-        all_issues.append({"severity": "critical", "type": "dropped_differential", "detail": f"R1 dx dropped: {dd}"})
+        dd_lower = dd.lower().strip()
+        # Check if this differential actually exists in R3's updated list
+        truly_dropped = not any(
+            dd_lower in r3_name or r3_name in dd_lower
+            for r3_name in r3_updated_names
+        )
+        if truly_dropped:
+            all_issues.append({"severity": "major", "type": "dropped_differential", "detail": f"R1 dx truly absent from R3: {dd}"})
+        else:
+            all_issues.append({"severity": "minor", "type": "dropped_differential", "detail": f"R1 dx present in R3 (low confidence): {dd}"})
 
     # Deduplicate issues by detail text
     seen = set()

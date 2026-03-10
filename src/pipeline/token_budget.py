@@ -168,8 +168,15 @@ class TokenBudgetManager:
         # 6) Hard floor
         budget = max(budget, floor)
 
-        # 7) Deduct from pool
+        # 7) Deduct from pool (allow negative but cap debt to prevent runaway)
         self._pool -= budget
+        if self._pool < 0:
+            logger.warning(
+                "[TOKEN-BUDGET] Pool debt: %d (floor allocation exceeded available pool)",
+                self._pool,
+            )
+            # Cap debt at -50% of initial pool to prevent infinite spiraling
+            self._pool = max(self._pool, -self._initial_pool // 2)
 
         stats.allocations += 1
         stats.total_allocated += budget

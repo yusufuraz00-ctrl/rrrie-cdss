@@ -725,6 +725,9 @@ function handleFinalResult(data) {
   const totalTime = result.total_time || 0;
   const iterations = result.iterations || 1;
   const iterHistory = result.iteration_history || [];
+  const calibration = result.confidence_calibration || {};
+  const safetyAlerts = result.safety_alerts || [];
+  const iclExamplesUsed = result.icl_examples_used || 0;
 
   // Mark the test case as tested now that the pipeline finished
   if (currentTestCaseId) {
@@ -770,6 +773,72 @@ function handleFinalResult(data) {
     html += `<div class="dx-gaps"><strong>⚠ Unexplained:</strong> ${primary.unexplained_symptoms.map((s) => escapeHTML(s)).join(", ")}</div>`;
   }
   html += `</div></div>`;
+
+  // Confidence Calibration Gauge (dual-score overlay)
+  if (calibration.raw != null && calibration.calibrated != null) {
+    const rawPct = (calibration.raw * 100).toFixed(0);
+    const calPct = (calibration.calibrated * 100).toFixed(0);
+    const zone = calibration.zone || 'caution';
+    const zoneColors = { safe: 'var(--accent-green)', caution: 'var(--accent-yellow)', critical: 'var(--accent-red)' };
+    const zoneColor = zoneColors[zone] || 'var(--accent-yellow)';
+    const zoneIcons = { safe: 'fa-shield-check', caution: 'fa-triangle-exclamation', critical: 'fa-skull-crossbones' };
+    const zoneIcon = zoneIcons[zone] || 'fa-triangle-exclamation';
+
+    html += `<div class="result-section calibration-section" style="border-left: 4px solid ${zoneColor};">`;
+    html += `<h2><i class="fa-solid fa-scale-balanced"></i> Confidence Calibration</h2>`;
+    html += `<div class="calibration-gauges">`;
+
+    // LLM Raw gauge
+    html += `<div class="gauge-item">`;
+    html += `<div class="gauge-ring" style="--pct: ${rawPct}; --ring-color: var(--accent-blue);">`;
+    html += `<span class="gauge-value">${rawPct}%</span></div>`;
+    html += `<span class="gauge-label">LLM Raw</span></div>`;
+
+    // Calibrated gauge
+    html += `<div class="gauge-item">`;
+    html += `<div class="gauge-ring" style="--pct: ${calPct}; --ring-color: ${zoneColor};">`;
+    html += `<span class="gauge-value">${calPct}%</span></div>`;
+    html += `<span class="gauge-label">Calibrated</span></div>`;
+
+    // Zone badge
+    html += `<div class="gauge-item zone-badge-wrap">`;
+    html += `<div class="zone-badge" style="background: ${zoneColor}20; border: 1px solid ${zoneColor}; color: ${zoneColor};">`;
+    html += `<i class="fa-solid ${zoneIcon}"></i> ${zone.toUpperCase()}</div>`;
+    html += `</div>`;
+
+    html += `</div>`; // calibration-gauges
+
+    if (calibration.warning) {
+      html += `<div class="calibration-warning" style="color: ${zoneColor};">${escapeHTML(calibration.warning)}</div>`;
+    }
+
+    // Breakdown details (collapsible)
+    if (calibration.breakdown) {
+      const bd = calibration.breakdown;
+      html += `<details class="calibration-details"><summary>Score Breakdown</summary>`;
+      html += `<div class="breakdown-grid">`;
+      html += `<div>LLM × 0.30 = <strong>${(bd.c_llm_weighted * 100).toFixed(1)}%</strong></div>`;
+      html += `<div>Evidence × 0.35 = <strong>${(bd.e_ground_weighted * 100).toFixed(1)}%</strong></div>`;
+      html += `<div>Symptoms × 0.35 = <strong>${(bd.s_coverage_weighted * 100).toFixed(1)}%</strong></div>`;
+      html += `<div>Conflict Penalty = <strong style="color: var(--accent-red);">−${(bd.p_conflict * 100).toFixed(1)}%</strong></div>`;
+      html += `</div></details>`;
+    }
+    html += `</div>`;
+  }
+
+  // Safety Alerts
+  if (safetyAlerts.length > 0) {
+    html += `<div class="result-section safety-alert-section">`;
+    html += `<h2><i class="fa-solid fa-shield-halved"></i> Safety Net Alerts</h2>`;
+    safetyAlerts.forEach(a => {
+      const sevColor = a.severity === 'critical' ? 'var(--accent-red)' : 'var(--accent-yellow)';
+      html += `<div class="safety-alert-card" style="border-left: 3px solid ${sevColor};">`;
+      html += `<span class="safety-param">${escapeHTML(a.parameter)}: <strong>${a.value}</strong> (${escapeHTML(a.threshold)})</span>`;
+      html += `<div class="safety-msg">${escapeHTML(a.alert)}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
 
   // Differential diagnoses
   if (diffs.length) {
@@ -856,6 +925,9 @@ function handleFinalResult(data) {
   html += `<div class="eval-meta">`;
   html += `<span>Decision: <strong>${escapeHTML(evaluation.decision || "?")}</strong></span>`;
   html += `<span>IE Confidence: <strong>${((evaluation.confidence || 0) * 100).toFixed(0)}%</strong></span>`;
+  if (iclExamplesUsed > 0) {
+    html += `<span>📚 ICL: <strong>${iclExamplesUsed} example(s)</strong></span>`;
+  }
   html += `<span>Iterations: <strong>${iterations}</strong></span>`;
   html += `</div>`;
   if (evaluation.reasoning) {

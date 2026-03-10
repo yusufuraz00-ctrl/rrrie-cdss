@@ -133,13 +133,17 @@ class MemoryContext:
                 ie_dec = c.get("ie_decision", "?")
                 issues = c.get("ie_issues_summary", "None recorded")
                 iters = c.get("iteration_count", 1)
-                sections.append(
+                pearl = c.get("clinical_pearl", "")
+                case_block = (
                     f"## Similar Past Case #{i}\n"
                     f"- Diagnosis: {dx}\n"
                     f"- IE confidence: {ie_conf}, decision: {ie_dec}\n"
                     f"- Iterations needed: {iters}\n"
                     f"- Key issues found: {issues}"
                 )
+                if pearl:
+                    case_block += f"\n- 🎓 Lesson learned: {pearl}"
+                sections.append(case_block)
 
         return "\n\n".join(sections)
 
@@ -178,6 +182,8 @@ class CaseStore:
                 iteration_count INTEGER DEFAULT 1,
                 r1_model TEXT DEFAULT '',
                 r3_model TEXT DEFAULT '',
+                clinical_pearl TEXT DEFAULT '',
+                missed_symptoms TEXT DEFAULT '[]',
                 created_at REAL DEFAULT 0.0
             );
 
@@ -186,26 +192,27 @@ class CaseStore:
                 patient_text,
                 primary_diagnosis,
                 ie_issues_summary,
+                clinical_pearl,
                 content='tier1_cases',
                 content_rowid='id'
             );
 
             -- Triggers to keep FTS5 in sync with tier1_cases
             CREATE TRIGGER IF NOT EXISTS tier1_ai AFTER INSERT ON tier1_cases BEGIN
-                INSERT INTO tier1_fts(rowid, patient_text, primary_diagnosis, ie_issues_summary)
-                VALUES (new.id, new.patient_text, new.primary_diagnosis, new.ie_issues_summary);
+                INSERT INTO tier1_fts(rowid, patient_text, primary_diagnosis, ie_issues_summary, clinical_pearl)
+                VALUES (new.id, new.patient_text, new.primary_diagnosis, new.ie_issues_summary, new.clinical_pearl);
             END;
 
             CREATE TRIGGER IF NOT EXISTS tier1_ad AFTER DELETE ON tier1_cases BEGIN
-                INSERT INTO tier1_fts(tier1_fts, rowid, patient_text, primary_diagnosis, ie_issues_summary)
-                VALUES ('delete', old.id, old.patient_text, old.primary_diagnosis, old.ie_issues_summary);
+                INSERT INTO tier1_fts(tier1_fts, rowid, patient_text, primary_diagnosis, ie_issues_summary, clinical_pearl)
+                VALUES ('delete', old.id, old.patient_text, old.primary_diagnosis, old.ie_issues_summary, old.clinical_pearl);
             END;
 
             CREATE TRIGGER IF NOT EXISTS tier1_au AFTER UPDATE ON tier1_cases BEGIN
-                INSERT INTO tier1_fts(tier1_fts, rowid, patient_text, primary_diagnosis, ie_issues_summary)
-                VALUES ('delete', old.id, old.patient_text, old.primary_diagnosis, old.ie_issues_summary);
-                INSERT INTO tier1_fts(rowid, patient_text, primary_diagnosis, ie_issues_summary)
-                VALUES (new.id, new.patient_text, new.primary_diagnosis, new.ie_issues_summary);
+                INSERT INTO tier1_fts(tier1_fts, rowid, patient_text, primary_diagnosis, ie_issues_summary, clinical_pearl)
+                VALUES ('delete', old.id, old.patient_text, old.primary_diagnosis, old.ie_issues_summary, old.clinical_pearl);
+                INSERT INTO tier1_fts(rowid, patient_text, primary_diagnosis, ie_issues_summary, clinical_pearl)
+                VALUES (new.id, new.patient_text, new.primary_diagnosis, new.ie_issues_summary, new.clinical_pearl);
             END;
 
             -- Tier 2: Patterns (distilled from Tier 1)
@@ -264,6 +271,8 @@ class CaseStore:
         iteration_count: int = 1,
         r1_model: str = "",
         r3_model: str = "",
+        clinical_pearl: str = "",
+        missed_symptoms: list[str] | None = None,
     ) -> int:
         """Store a completed case in Tier 1. Returns the case ID."""
         keywords = " ".join(self._extract_keywords(patient_text))
@@ -272,24 +281,29 @@ class CaseStore:
             f"{iss.get('type', '?')}: {iss.get('detail', '?')[:80]}"
             for iss in ie_issues[:5]
         ) if ie_issues else "No issues"
+        missed_json = json.dumps(missed_symptoms or [], ensure_ascii=False)
 
         cursor = self.conn.execute(
             """INSERT INTO tier1_cases
                (patient_text, patient_keywords, primary_diagnosis,
                 r3_confidence, ie_decision, ie_confidence,
                 ie_issues, ie_issues_summary, iteration_count,
-                r1_model, r3_model, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                r1_model, r3_model, clinical_pearl, missed_symptoms,
+                created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (patient_text, keywords, primary_diagnosis,
              r3_confidence, ie_decision, ie_confidence,
              issues_json, issues_summary, iteration_count,
-             r1_model, r3_model, time.time()),
+             r1_model, r3_model, clinical_pearl, missed_json,
+             time.time()),
         )
         self.conn.commit()
         case_id = cursor.lastrowid
+        pearl_log = f", pearl='{clinical_pearl[:60]}...'" if clinical_pearl else ""
         logger.info(
-            "[MEMORY] Stored case #%d: %s (IE: %s, conf=%.2f, iters=%d)",
-            case_id, primary_diagnosis, ie_decision, ie_confidence, iteration_count,
+            "[MEMORY] Stored case #%d: %s (IE: %s, conf=%.2f, iters=%d%s)",
+            case_id, primary_diagnosis, ie_decision, ie_confidence,
+            iteration_count, pearl_log,
         )
         return case_id
 

@@ -99,76 +99,94 @@ If ANY issue above has type "hallucination":
 # ═════════════════════════════════════════════════════════════════════════
 
 PERSPECTIVE_SHIFT_PROMPTS = [
-    # Perspective 1: Devil's Advocate
-    """## 🔄 PERSPECTIVE SHIFT: Devil's Advocate (Iteration {iteration})
+    # Perspective 1: Symptom-Gap Focus (replaces Devil's Advocate)
+    """## 🔄 PERSPECTIVE SHIFT: Symptom-Gap Focus (Iteration {iteration})
 
-STOP. Your previous {stagnation_count} iterations all concluded "{prev_diagnosis}".
-The quality checker is STILL unsatisfied. This means your current reasoning path is STUCK.
+Your previous {stagnation_count} iterations all concluded "{prev_diagnosis}".
+The quality checker identified SPECIFIC issues. Do NOT abandon your diagnosis blindly.
 
-### DO THE FOLLOWING (mandatory):
-1. ASSUME your primary diagnosis "{prev_diagnosis}" is WRONG. What would be true instead?
-2. Re-read the patient text as if you've never seen it before. Focus on:
-   - Environmental/occupational exposures (where was the patient? what did they touch?)
-   - Social history clues (family illness patterns, animal contact, water/food sources)
-   - Temporal patterns (what changed right before symptom onset?)
-3. List 3 diagnoses that are NOT "{prev_diagnosis}" and rank them by how well
-   they explain ALL symptoms simultaneously (including the ones that don't fit your old diagnosis).
-4. Pick the BEST alternative and make it your new primary — even if confidence is lower.
-   A lower-confidence correct answer beats a high-confidence wrong answer.
-
-### WHAT YOU ARE MISSING:
+### UNEXPLAINED SYMPTOMS — THE ONLY REASON TO SHIFT:
 {issues_text}
 
-Previous confidence was {prev_confidence} — but IE repeatedly rejected it.
-High confidence + repeated rejection = the model is confidently wrong.
+### RULES (MANDATORY — violating these = diagnostic regression):
+1. EXAMINE THE GAPS: What specific symptoms does "{prev_diagnosis}" fail to explain?
+   - If ZERO unexplained symptoms → your current diagnosis is likely CORRECT.
+     Stay with it and fix the evidence/citation issues instead.
+   - If 1-2 unexplained symptoms → ask: could these be COMORBIDITIES or complications
+     of "{prev_diagnosis}" rather than evidence of a different disease?
+
+2. COVERAGE PRESERVATION: You MUST NOT reduce symptom coverage.
+   If "{prev_diagnosis}" explains {prev_confidence:.0%} of symptoms, your new answer
+   MUST explain AT LEAST as many symptoms. Going from 80% to 70% coverage is FAILURE.
+
+3. UNIFYING SEARCH: Instead of switching diagnoses, ask:
+   "What SINGLE condition could explain BOTH the symptoms '{prev_diagnosis}' covers
+    AND the symptoms it doesn't?"
+   A unifying diagnosis > switching between partial explanations.
+
+4. If you cannot find a better alternative → KEEP "{prev_diagnosis}" and acknowledge
+   the unexplained symptoms as requiring further workup.
 """,
 
-    # Perspective 2: Epidemiological Lens
-    """## 🔄 PERSPECTIVE SHIFT: Epidemiological Detective (Iteration {iteration})
+    # Perspective 2: Differential Exploration (replaces Epidemiological)
+    """## 🔄 PERSPECTIVE SHIFT: Differential Exploration (Iteration {iteration})
 
 Your analysis has been stuck on "{prev_diagnosis}" for {stagnation_count} iterations.
-Time to think like an epidemiologist, not a clinician.
-
-### MANDATORY STEPS:
-1. CLUSTER ANALYSIS: Is there more than one person affected? If yes, think OUTBREAK.
-   Family member illness/death + same symptoms = transmission chain, not coincidence.
-2. EXPOSURE TIMELINE: Map every environment the patient visited in the 1-21 days
-   before symptom onset. Each location is a potential pathogen source.
-3. ZOONOTIC SCAN: Any animal contact (direct or indirect)? Caves, barns, wells,
-   markets, farms = habitat of disease vectors (bats, rodents, mosquitoes).
-4. GEOGRAPHIC FILTER: What endemic diseases exist in the patient's region?
-5. TRANSMISSION MODE: If family clustering exists → airborne/droplet/contact → 
-   which HIGH-FATALITY pathogens spread this way?
+Rather than abandoning it, let's EXPLORE whether it's complete.
 
 ### STILL UNRESOLVED:
 {issues_text}
 
-Do NOT return to "{prev_diagnosis}" unless you can now explain every symptom
-and the epidemiological pattern. Think: what pathogen fits ALL the data?
+### MANDATORY EXPLORATION STEPS:
+1. COMORBIDITY CHECK: Could the patient have BOTH "{prev_diagnosis}" AND another
+   condition? Sometimes unexplained symptoms come from a second, concurrent pathology.
+
+2. COMPLICATION CHECK: Could the unexplained symptoms be COMPLICATIONS of
+   "{prev_diagnosis}"? For example: untreated appendicitis → perforation → peritonitis.
+   The base diagnosis may be correct but its STAGE/SEVERITY may be wrong.
+
+3. VARIANT CHECK: Is there a VARIANT or SUBTYPE of "{prev_diagnosis}" that would
+   explain the additional findings? (e.g., typical vs atypical presentation)
+
+4. ALTERNATIVE SYNTHESIS: If after checks 1-3 you still have unexplained symptoms,
+   list 2-3 alternative diagnoses BUT rank them by how many TOTAL symptoms each
+   explains (not just the unexplained ones). The winner must cover MORE symptoms
+   than "{prev_diagnosis}" (previous coverage: {prev_confidence:.0%}).
+
+5. REGRESSION GUARD: Before finalizing, count:
+   - Old diagnosis explained N symptoms
+   - New diagnosis explains M symptoms
+   If M < N → REJECT the new diagnosis and keep the old one.
 """,
 
-    # Perspective 3: Pathophysiology Bridge
-    """## 🔄 PERSPECTIVE SHIFT: Pathophysiology Bridge (Iteration {iteration})
+    # Perspective 3: Root-Cause vs Manifestation (replaces Pathophysiology Bridge)
+    """## 🔄 PERSPECTIVE SHIFT: Root-Cause Analysis (Iteration {iteration})
 
-You've tried "{prev_diagnosis}" {stagnation_count} times. IE keeps saying no.
-Now think about the MECHANISM, not the disease name.
-
-### MANDATORY STEPS:
-1. ORGAN SYSTEMS: List every organ system affected in this patient.
-   (e.g., CNS: confusion/myoclonus, Pulmonary: hypoxia/dyspnea, Systemic: fever)
-2. BRIDGING QUESTION: What SINGLE pathogen or process can damage ALL these
-   organ systems simultaneously? Focus on agents that are both:
-   - Pneumotropic (attacks lungs) AND Neurotropic (attacks brain)
-3. RARITY CHECK: Common diseases rarely attack multiple organ systems at once.
-   Multi-organ attack + high lethality + family clustering = RARE pathogen.
-4. VECTOR/RESERVOIR: For each candidate pathogen, what is its natural reservoir?
-   Does the patient history mention any potential contact with that reservoir?
+You've tried "{prev_diagnosis}" {stagnation_count} times. Let's examine if it's a
+ROOT CAUSE or a DOWNSTREAM MANIFESTATION of something else.
 
 ### UNRESOLVED ISSUES:
 {issues_text}
 
-Remember: the most elegant diagnosis explains ALL findings with ONE cause.
-If "{prev_diagnosis}" leaves symptoms unexplained, it's the WRONG diagnosis.
+### MANDATORY ANALYSIS:
+1. UPSTREAM QUESTION: Could "{prev_diagnosis}" itself be CAUSED BY something else?
+   Ask: "What upstream process could produce {prev_diagnosis} as a consequence?"
+   Example: "AKI" is not a root cause — "NSAID nephrotoxicity in CKD" is.
+
+2. ORGAN SYSTEM MAP: List every organ system showing abnormality.
+   If only 1 system → "{prev_diagnosis}" is likely correct (single-organ disease).
+   If 2+ systems → look for a SYSTEMIC process connecting them all.
+
+3. TIMELINE CHECK: Do the symptoms fit the TEMPORAL PROGRESSION of "{prev_diagnosis}"?
+   If symptoms appeared in the wrong order for {prev_diagnosis} → consider alternatives.
+   If symptoms fit the expected timeline perfectly → the diagnosis is probably right.
+
+4. SYMPTOM COVERAGE AUDIT (MANDATORY BEFORE ANY CHANGE):
+   Current diagnosis explains these symptoms: [list them from your previous answer]
+   Current diagnosis does NOT explain these: [list unexplained]
+   
+   Any new diagnosis MUST cover ALL items from the first list PLUS at least some
+   from the second list. Reducing total coverage is FORBIDDEN.
 """,
 ]
 
@@ -783,12 +801,12 @@ The diagnosis has already been determined and verified. Your ONLY job is treatme
 
 CRITICAL SAFETY RULES (violating any = patient harm):
 
-1. EVIDENCE-ONLY PRESCRIBING (MOST IMPORTANT RULE):
-   You may ONLY recommend drugs and interventions that appear in the Treatment Evidence
-   provided below. Do NOT recall drug protocols from your training data — your parametric
-   memory for pharmacology may be INCOMPLETE or OUTDATED.
-   If the evidence does not mention a specific drug → you CANNOT recommend it.
-   If you are unsure about a drug → do NOT include it. Omission is safer than hallucination.
+1. EVIDENCE-INFORMED PRESCRIBING (PREFERRED APPROACH):
+   Prioritize drugs and interventions that appear in the Treatment Evidence provided below.
+   Do NOT invent novel or experimental drugs from your training data.
+   However, if the evidence is SILENT about a universally accepted first-line treatment
+   for this specific diagnosis, you MUST still recommend it (see Rule 3 and Rule 8).
+   Omission of a gold-standard treatment is MORE dangerous than including it without a citation.
 
 2. CONTRAINDICATION CROSS-CHECK:
    Before recommending ANY drug, check the Contraindication Evidence below.
@@ -796,23 +814,23 @@ CRITICAL SAFETY RULES (violating any = patient harm):
    → DO NOT recommend it. This is NON-NEGOTIABLE.
    If no safety data exists for a drug → flag it as "safety unverified" in your output.
 
-3. EVIDENCE CONFLICT OVERRIDE (LIFE-SAVING EXCEPTION TO RULE 1):
-   If the Treatment Evidence says to AVOID a drug/intervention that is an ESTABLISHED
-   GOLD-STANDARD treatment for this specific diagnosis in mainstream medical practice
-   (e.g., "avoid sodium bicarbonate" for salicylate toxicity, "avoid naloxone" for opioid
-   overdose, "avoid epinephrine" for anaphylaxis), then:
-   → The evidence is LIKELY UNRELIABLE (misquoted, out-of-context, or hallucinated).
+3. EVIDENCE CONFLICT / SILENCE OVERRIDE (LIFE-SAVING — OVERRIDES RULE 1):
+   If the Treatment Evidence either:
+     a) Explicitly says to AVOID a drug that IS an established gold-standard treatment, OR
+     b) Is SILENT (does not mention any specific drug) for a diagnosis where 
+        universally accepted pharmacological treatments exist
+   Then:
    → Do NOT follow the evidence blindly. Instead:
-     a) ADD the drug to your treatment plan as standard protocol.
-     b) Add an "evidence_conflict" field in your output:
+     a) ADD the gold-standard treatment(s) to your plan.
+     b) Add an "evidence_conflict" field:
         "evidence_conflict": {
           "drug": "drug name",
-          "evidence_says": "what the evidence claimed",
+          "evidence_says": "not mentioned / contradicted",
           "standard_protocol": "what established guidelines say",
-          "decision": "Following standard protocol — evidence appears unreliable"
+          "decision": "Following standard protocol — evidence appears incomplete/unreliable"
         }
-   This rule EXISTS because R2 search can return misinterpreted abstracts that
-   contradict universally accepted treatments. A missing gold-standard drug KILLS patients.
+   This rule EXISTS because R2 search can return abstracts that discuss pathophysiology
+   without naming specific drugs. A missing gold-standard drug KILLS patients.
    When in doubt: include the gold-standard drug + flag the conflict.
 
 4. COFACTOR-SUBSTRATE RULE (can KILL patient if violated):
@@ -842,6 +860,15 @@ CRITICAL SAFETY RULES (violating any = patient harm):
      d) If UNSURE → EXCLUDE the drug (precautionary principle).
    A drug correct for the primary diagnosis but LETHAL for a high-probability
    differential is NOT a safe prescription. FIRST, DO NO HARM.
+
+8. MISSING CRITICAL THERAPY SAFETY NET (LIFE-SAVING DRUGS):
+   After generating your treatment plan, critically review the "pharmacological" list
+   against the confirmed diagnosis. Ask: "Did I include the absolute most critical,
+   time-sensitive, life-saving intervention for this diagnosis?"
+   (e.g., tPA/thrombolytics for acute ischemic stroke within window, Epinephrine for anaphylaxis, early antibiotics for sepsis)
+   → If a universally established life-saving intervention is MISSING, you MUST ADD IT.
+   → Even if other valid drugs are present, the MISSING life-saving drug must be inserted.
+   → Mark it with "evidence_conflict": {"evidence_says": "not explicitly mentioned in R2 abstracts", "decision": "Gold-standard life-saving fallback"}
 
 OUTPUT — valid JSON only:
 }

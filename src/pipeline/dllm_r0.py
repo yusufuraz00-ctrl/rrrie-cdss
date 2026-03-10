@@ -18,6 +18,7 @@ Adaptive Depth:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -56,23 +57,47 @@ class R0Result:
 # Layer Prompts — each layer gets a short, focused prompt
 # ═══════════════════════════════════════════════════════════════════
 
-L1_SYSTEM = """You are a clinical entity extractor. Extract ALL clinical entities from the patient text.
-Extract symptoms, vital signs (with numeric values), medications (with doses if mentioned),
-medical history, lab results, and procedures/surgeries.
-Also detect the language (en or tr).
+L1_AGENT_CLEANSER_SYSTEM = """You are a Semantic Text Cleanser (Agent Alpha).
+Analyze the raw patient text. Your job is to translate cultural idioms, slang, colloquailisms, and metaphors into objective, standard medical descriptions.
+Example: 'cereyanda kaldım' -> 'Cold draft exposure'.
+Example: 'bıçak saplanıyor' -> 'Severe, sharp, well-localized pain'.
+Example: 'içim dışıma çıktı' -> 'Severe vomiting'.
+DO NOT extract JSON. Output a clean, culturally normalized, professional medical narrative that accurately reflects the patient's symptoms without metaphorical exaggeration."""
 
+L1_AGENT_EXTRACTOR_SYSTEM = """You are a Strict Clinical Extractor (Agent Beta).
+Analyze the raw patient text and strictly extract objective anatomical locations, stated severities, procedures, and physical findings.
+Ignore emotional tone and metaphors. Only list the raw medical facts you can definitively extract.
+DO NOT output JSON yet. Output a structured bulleted list of exact clinical findings, labs, and vitals."""
+
+L1_AGENT_AUDITOR_SYSTEM = """You are a Context & Tone Auditor (Agent Gamma).
+Compare the patient's subjective narrative with any objective triage data (found in the text).
+Evaluate if the patient is exaggerating (panic factor), malingering, or downplaying their symptoms.
+Output a psychological and contextual audit report, specifying an 'exaggeration index' or 'urgency discount' if subjective complaints severely outweigh objective findings."""
+
+L1_CONSENSUS_SYSTEM = """You are the L1 Consensus Node.
+Synthesize the 3 agent reports into a hallucination-free JSON.
+If Alpha says a symptom is a metaphor (like 'knife'), SUPPRESS the literal meaning (no trauma) and extract the normalized medical term (e.g. 'sharp pain').
 Output ONLY valid JSON matching this schema:
-{"symptoms":[], "vitals":{}, "medications":[], "history":[], "labs":{}, "procedures":[], "language":"en|tr"}
-
-Do NOT add any explanation. Output raw JSON only."""
+{"symptoms":["..."],"vitals":{},"medications":[],"history":[]}"""
 
 L2_SYSTEM = """You are a clinical connection analyzer. Given extracted entities from a patient,
 find which symptoms explain each other, which drugs interact with findings,
 and how history connects to current presentation.
 
 Count INDEPENDENT symptom clusters (groups of related findings).
-If cluster_count is 1 AND total entities < 8, set early_exit to "simple".
-Otherwise set early_exit to "continue".
+A cluster is a group of findings that share ONE underlying pathophysiological process.
+
+DECISION FRAMEWORK for early_exit:
+- "simple": All findings belong to ONE pathophysiological process.
+  Examples: fever + myalgia + cough + fatigue = single infectious process.
+  Even if there are many entities, if they ALL connect to one process → simple.
+- "continue": Findings span 2+ INDEPENDENT processes, OR multi-organ involvement
+  with unclear etiology, OR contradictory/unexpected findings that need deeper analysis.
+
+Do NOT use entity count alone. Use SEMANTIC COHERENCE:
+  Ask: "Can ONE disease/process explain ALL these findings?"
+  If yes → cluster_count=1, early_exit="simple"
+  If no → cluster_count=N, early_exit="continue"
 
 Think step by step in your thinking phase.
 Output ONLY valid JSON:
@@ -82,6 +107,25 @@ Output ONLY valid JSON:
 L3_SYSTEM = """You are a clinical pattern recognizer. Given patient entities and their connections,
 identify known clinical patterns: classic triads, drug-exacerbation patterns,
 temporal sequences, well-known disease presentations.
+
+HIGH-YIELD PATTERNS TO RECOGNIZE (non-exhaustive — match if entities fit):
+- Sudden fever + severe myalgia/bodyache + fatigue + cough = Influenza (Grip)
+- Fever + sore throat + cervical lymphadenopathy = Pharyngitis/Tonsillitis
+- Fever + productive cough + dyspnea + crackles = Pneumonia
+- Fever + dysuria + urgency + frequency = Urinary Tract Infection
+- Fever + diarrhea + vomiting + abdominal cramps = Acute Gastroenteritis
+- Periumbilical pain → RLQ migration + fever + leukocytosis = Acute Appendicitis
+- Chest pain + troponin elevation + ECG changes = Acute Coronary Syndrome
+- Headache + fever + neck stiffness = Meningitis (Kernig/Brudzinski)
+- Sudden severe headache ("thunderclap") = Subarachnoid Hemorrhage until proven otherwise
+- Confusion + ophthalmoplegia + ataxia = Wernicke Encephalopathy (thiamine deficiency)
+- Fever + new murmur + petechiae/splinter hemorrhages = Infective Endocarditis
+- Flank pain + hematuria + nausea = Nephrolithiasis
+- Polyuria + polydipsia + weight loss = Diabetes (Type 1 if young)
+- Drug started recently + symptom onset = Drug-induced (ALWAYS consider)
+- Multi-organ dysfunction + fever + altered mental status = Sepsis
+
+{dynamic_patterns}
 
 Think step by step in your thinking phase.
 Output ONLY valid JSON:
@@ -109,14 +153,20 @@ Determine:
 - complexity: simple (1 cluster, clear), moderate (2 clusters OR unclear),
   complex (3+ clusters OR multi-system), critical (life-threatening acute)
 - suggested_differentials: top 3-5 preliminary diagnoses for downstream R1
+  IMPORTANT: If a pattern was detected in L3 with high confidence, it MUST
+  appear as the FIRST suggested differential.
 - key_questions: what the next stage should investigate
 - pipeline_hint: maps to processing track
+- pattern_confidence: confidence of the strongest L3 pattern match (0.0-1.0)
+
+{experience_prior}
 
 Output ONLY valid JSON:
 {"complexity":"simple|moderate|complex|critical",
  "suggested_differentials":["dx1","dx2","dx3"],
  "key_questions":["question 1","question 2"],
- "pipeline_hint":"simple|moderate|complex|critical"}"""
+ "pipeline_hint":"simple|moderate|complex|critical",
+ "pattern_confidence":0.0}"""
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -146,11 +196,18 @@ class DLLMR0:
     Each layer takes the previous layer's output and produces a more abstract
     clinical representation, just like DML layers produce increasingly
     abstract visual features.
+
+    Supports:
+      - Dynamic L3 pattern injection from Evidence Memory
+      - Experience-weighted L5 ranking from past diagnoses
+      - 4B escalation for complex/critical cases
     """
 
-    def __init__(self) -> None:
+    def __init__(self, evidence_store=None) -> None:
         self.settings = get_settings()
         self.client = DLLMClient(base_url=self.settings.dllm_api_url)
+        self.evidence_store = evidence_store
+        self._4b_client = None  # Lazy-init for escalation
 
     # ── Public API ──────────────────────────────────────────────────
 
@@ -162,19 +219,56 @@ class DLLMR0:
 
         logger.info("🧠 [DLLM R0] Starting 5-layer analysis (%d chars)...", len(patient_text))
 
-        # ── L1: Entity Extraction (thinking OFF) ────────────────
+        # ── L1: Multi-Agent Swarm Extraction (Alpha, Beta, Gamma) ──
         t0 = time.time()
-        l1 = self._run_layer(L1_SYSTEM, patient_text, max_tokens=400, temp=0.1)
-        timings["L1"] = round(time.time() - t0, 2)
-        l1_json = self._parse_json(l1.output, "L1")
+        
+        # We run the sub-agents concurrently to get Latent Representations
+        alpha_task = asyncio.to_thread(self._run_layer, L1_AGENT_CLEANSER_SYSTEM, patient_text, 400, 0.2)
+        beta_task = asyncio.to_thread(self._run_layer, L1_AGENT_EXTRACTOR_SYSTEM, patient_text, 400, 0.1)
+        gamma_task = asyncio.to_thread(self._run_layer, L1_AGENT_AUDITOR_SYSTEM, patient_text, 400, 0.2)
+        
+        alpha_res, beta_res, gamma_res = await asyncio.gather(alpha_task, beta_task, gamma_task)
+        
+        if alpha_res.thinking: all_thinking.append(f"[L1-Alpha] {alpha_res.thinking}")
+        if beta_res.thinking: all_thinking.append(f"[L1-Beta] {beta_res.thinking}")
+        if gamma_res.thinking: all_thinking.append(f"[L1-Gamma] {gamma_res.thinking}")
+
+        # ── L1: Consensus Synthesizer ─────────────────────────────
+        consensus_input = (
+            f"RAW PATIENT TEXT:\n{patient_text}\n\n"
+            f"AGENT ALPHA (Cleanser) REPORT:\n{alpha_res.output}\n\n"
+            f"AGENT BETA (Extractor) REPORT:\n{beta_res.output}\n\n"
+            f"AGENT GAMMA (Auditor) REPORT:\n{gamma_res.output}"
+        )
+        l1 = await asyncio.to_thread(self._run_layer, L1_CONSENSUS_SYSTEM, consensus_input, 600, 0.1, True)
+        
+        timings["L1_Swarm"] = round(time.time() - t0, 2)
+        l1_json = self._parse_json(l1.output, "L1_Consensus")
+
+        if l1.thinking:
+            all_thinking.append(f"[L1-Consensus] {l1.thinking}")
+
+        # L1 retry logic
+        if not l1_json:
+            logger.warning("⚠ [DLLM L1 Swarm] First consensus failed — retrying")
+            t0_retry = time.time()
+            l1_retry = await asyncio.to_thread(self._run_layer, L1_CONSENSUS_SYSTEM, consensus_input, 650, 0.15, True)
+            timings["L1_Swarm"] += round(time.time() - t0_retry, 2)
+            l1_json = self._parse_json(l1_retry.output, "L1-retry")
+            if l1_json:
+                logger.info("✓ [DLLM L1 Swarm] Retry succeeded")
+                if l1_retry.thinking:
+                    all_thinking.append(f"[L1-retry] {l1_retry.thinking}")
 
         if not l1_json:
-            logger.warning("⚠ [DLLM L1] Failed to extract entities — returning empty R0Result")
+            logger.warning("⚠ [DLLM L1 Swarm] Failed after retry — returning empty R0Result")
+            timings["L1"] = timings.get("L1_Swarm", 0) # rename for fallback compatibility
             return R0Result(layers_run=[1], layer_timings=timings,
                             total_time=round(time.time() - total_t0, 2))
 
+        timings["L1"] = timings.pop("L1_Swarm")
         language = l1_json.get("language", "en")
-        logger.info("✓ [DLLM L1] Entities extracted: %d symptoms, %d meds, %d history items (%.1fs)",
+        logger.info("✓ [DLLM L1 Swarm] Entities extracted: %d symptoms, %d meds, %d history items (%.1fs)",
                      len(l1_json.get("symptoms", [])), len(l1_json.get("medications", [])),
                      len(l1_json.get("history", [])), timings["L1"])
 
@@ -243,7 +337,17 @@ class DLLMR0:
             f"ENTITIES:\n{json.dumps(l1_json, ensure_ascii=False)}\n\n"
             f"CONNECTIONS:\n{json.dumps(l2_json.get('connections', []), ensure_ascii=False)}"
         )
-        l3 = self._run_layer(L3_SYSTEM, l3_input, max_tokens=500, temp=0.2)
+        # Inject dynamic patterns from Evidence Memory
+        dynamic_patterns_text = ""
+        if self.evidence_store:
+            try:
+                l1_symptoms = [s if isinstance(s, str) else s.get("symptom", str(s)) for s in l1_json.get("symptoms", [])]
+                past_patterns = self.evidence_store.get_relevant_patterns(l1_symptoms, max_patterns=5)
+                dynamic_patterns_text = self.evidence_store.format_patterns_for_l3(past_patterns)
+            except Exception as exc:
+                logger.warning("[DLLM L3] Dynamic pattern retrieval failed: %s", exc)
+        l3_prompt = L3_SYSTEM.replace("{dynamic_patterns}", dynamic_patterns_text)
+        l3 = self._run_layer(l3_prompt, l3_input, max_tokens=500, temp=0.2)
         timings["L3"] = round(time.time() - t0, 2)
         l3_json = self._parse_json(l3.output, "L3") or {"patterns": [], "preliminary_differentials": []}
         if l3.thinking:
@@ -276,9 +380,63 @@ class DLLMR0:
             l1_json, l2_json.get("connections", []),
             l3_json.get("patterns", []), l4_json,
         )
-        l5 = self._run_layer(L5_SYSTEM, l5_input, max_tokens=300, temp=0.1)
+        # Inject experience-weighted prior from Evidence Memory
+        experience_prior_text = ""
+        if self.evidence_store:
+            try:
+                top_dx = self.evidence_store.get_top_diagnoses(limit=10)
+                if top_dx:
+                    lines = ["EPIDEMIOLOGICAL CONTEXT from past cases:"]
+                    for dx_name, count, avg_conf in top_dx:
+                        lines.append(f"  - {dx_name}: {count} case(s), avg confidence {avg_conf:.0%}")
+                    lines.append("Use this as a Bayesian prior — common conditions should be")
+                    lines.append("considered before rare ones UNLESS symptoms specifically contradict them.")
+                    experience_prior_text = "\n".join(lines)
+            except Exception as exc:
+                logger.warning("[DLLM L5] Experience prior retrieval failed: %s", exc)
+        l5_prompt = L5_SYSTEM.replace("{experience_prior}", experience_prior_text)
+        l5 = self._run_layer(l5_prompt, l5_input, max_tokens=300, temp=0.1)
         timings["L5"] = round(time.time() - t0, 2)
         l5_json = self._parse_json(l5.output, "L5") or {"complexity": "moderate", "pipeline_hint": "moderate"}
+
+        # ── 4B Escalation: Re-run L3+L5 with 4B for complex/critical ──
+        initial_complexity = l5_json.get("complexity", "moderate")
+        if initial_complexity in ("complex", "critical"):
+            try:
+                if self._4b_client is None:
+                    self._4b_client = DLLMClient(base_url="http://127.0.0.1:8080")
+                if self._4b_client.is_healthy():
+                    logger.info("🔄 [DLLM R0] Escalating to 4B model for %s case...", initial_complexity)
+                    t0_esc = time.time()
+
+                    # Re-run L3 with 4B
+                    l3_esc = self._run_layer_with(
+                        self._4b_client, l3_prompt, l3_input, max_tokens=600, temp=0.2,
+                    )
+                    l3_esc_json = self._parse_json(l3_esc.output, "L3-4B")
+                    if l3_esc_json and l3_esc_json.get("patterns"):
+                        l3_json = l3_esc_json  # Prefer 4B patterns
+                        if l3_esc.thinking:
+                            all_thinking.append(f"[L3-4B] {l3_esc.thinking}")
+
+                    # Re-run L5 with 4B using upgraded L3
+                    l5_input_esc = self._build_l5_input(
+                        l1_json, l2_json.get("connections", []),
+                        l3_json.get("patterns", []), l4_json,
+                    )
+                    l5_esc = self._run_layer_with(
+                        self._4b_client, l5_prompt, l5_input_esc, max_tokens=400, temp=0.1,
+                    )
+                    l5_esc_json = self._parse_json(l5_esc.output, "L5-4B")
+                    if l5_esc_json:
+                        l5_json = l5_esc_json  # Prefer 4B synthesis
+
+                    esc_time = round(time.time() - t0_esc, 2)
+                    timings["4B_escalation"] = esc_time
+                    logger.info("✓ [DLLM R0] 4B escalation done in %.1fs — new complexity=%s",
+                                 esc_time, l5_json.get("complexity", "?"))
+            except Exception as exc:
+                logger.warning("[DLLM R0] 4B escalation failed (using 0.8B results): %s", exc)
 
         total = round(time.time() - total_t0, 2)
         logger.info("✓ [DLLM R0] Full 5-layer analysis in %.1fs — complexity=%s",
@@ -297,11 +455,18 @@ class DLLMR0:
         max_tokens: int = 512, temp: float = 0.2,
     ) -> DLLMResponse:
         """Execute a single DLLM layer via the 0.8B model."""
+        return self._run_layer_with(self.client, system_prompt, user_content, max_tokens, temp)
+
+    def _run_layer_with(
+        self, client: DLLMClient, system_prompt: str, user_content: str,
+        max_tokens: int = 512, temp: float = 0.2,
+    ) -> DLLMResponse:
+        """Execute a single DLLM layer via any compatible client (0.8B or 4B)."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
         ]
-        return self.client.chat(messages, temperature=temp, max_tokens=max_tokens)
+        return client.chat(messages, temperature=temp, max_tokens=max_tokens)
 
     # ── Emergency Detection (pre-L2) ───────────────────────────
 
@@ -344,7 +509,7 @@ class DLLMR0:
 
     @staticmethod
     def _parse_json(text: str, layer: str) -> dict | None:
-        """Parse JSON from layer output, handling markdown wrapping."""
+        """Parse JSON from layer output, with truncated-JSON repair."""
         if not text or not text.strip():
             logger.warning("⚠ [DLLM %s] Empty output", layer)
             return None
@@ -359,12 +524,127 @@ class DLLMR0:
             s = s[:-3]
         s = s.strip()
 
+        # Attempt 1: direct parse
         try:
             return json.loads(s)
-        except json.JSONDecodeError as e:
-            logger.error("✗ [DLLM %s] JSON parse error: %s", layer, e)
-            logger.debug("[DLLM %s] Raw: %s", layer, s[:300])
-            return None
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 1.5: clean trailing commas
+        try:
+            import re
+            cleaned_s = re.sub(r',\s*([\]}])', r'\1', s)
+            if cleaned_s != s:
+                return json.loads(cleaned_s)
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 2: stack-based truncated JSON repair
+        try:
+            repaired = DLLMR0._repair_truncated_json(s)
+            if repaired:
+                result = json.loads(repaired)
+                logger.info("✓ [DLLM %s] JSON repaired via stack-based closure", layer)
+                return result
+        except (json.JSONDecodeError, Exception):
+            pass
+
+        # Attempt 3: extract first JSON object from text
+        try:
+            start = s.index("{")
+            # Find matching closing brace
+            depth = 0
+            in_string = False
+            escape_next = False
+            for i in range(start, len(s)):
+                c = s[i]
+                if escape_next:
+                    escape_next = False
+                    continue
+                if c == "\\":
+                    escape_next = True
+                    continue
+                if c == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+                if not in_string:
+                    if c == "{":
+                        depth += 1
+                    elif c == "}":
+                        depth -= 1
+                        if depth == 0:
+                            return json.loads(s[start : i + 1])
+        except (ValueError, json.JSONDecodeError):
+            pass
+
+        logger.error("✗ [DLLM %s] JSON parse failed after all repair attempts", layer)
+        logger.debug("[DLLM %s] Raw: %s", layer, s[:300])
+        return None
+
+    @staticmethod
+    def _repair_truncated_json(s: str) -> str | None:
+        """Attempt to repair truncated JSON by closing open brackets/strings."""
+        if not s or s[0] != "{":
+            # Try to find the start of JSON
+            idx = s.find("{")
+            if idx == -1:
+                return None
+            s = s[idx:]
+
+        # Walk the string tracking open brackets
+        stack = []
+        in_string = False
+        escape_next = False
+        last_valid = 0
+
+        for i, c in enumerate(s):
+            if escape_next:
+                escape_next = False
+                last_valid = i
+                continue
+            if c == "\\":
+                escape_next = True
+                last_valid = i
+                continue
+            if c == '"':
+                if in_string:
+                    in_string = False
+                    last_valid = i
+                else:
+                    in_string = True
+                    last_valid = i
+                continue
+            if in_string:
+                last_valid = i
+                continue
+            if c in "{[":
+                stack.append(c)
+                last_valid = i
+            elif c == "}":
+                if stack and stack[-1] == "{":
+                    stack.pop()
+                last_valid = i
+            elif c == "]":
+                if stack and stack[-1] == "[":
+                    stack.pop()
+                last_valid = i
+            else:
+                last_valid = i
+
+        if not stack and not in_string:
+            return s  # Already valid
+
+        # Close open constructs
+        result = s[:last_valid + 1]
+        if in_string:
+            result += '"'
+        # Close remaining brackets in reverse
+        for bracket in reversed(stack):
+            if bracket == "{":
+                result += "}"
+            elif bracket == "[":
+                result += "]"
+        return result
 
     # ── Result Builder ─────────────────────────────────────────
 

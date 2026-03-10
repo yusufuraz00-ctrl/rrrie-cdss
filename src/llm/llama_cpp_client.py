@@ -333,6 +333,7 @@ class DLLMClient:
         messages: list[dict[str, str]],
         temperature: float = 0.2,
         max_tokens: int = 512,
+        json_mode: bool = False,
     ) -> DLLMResponse:
         """Single chat completion — returns both thinking and output."""
         t0 = time.time()
@@ -342,7 +343,10 @@ class DLLMClient:
             "temperature": temperature if temperature > 0 else 0.6,
             "top_p": 0.95,
             "top_k": 20,
+            "repeat_penalty": 1.05,
         }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
         resp = self._session.post(
             f"{self._base_url}/v1/chat/completions",
             json=payload,
